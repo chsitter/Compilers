@@ -10,6 +10,10 @@
 <project name="Compilers" default="default" basedir=".">
     <description>Builds, tests, and runs the project Compilers.</description>
     <import file="nbproject/build-impl.xml"/>
+
+    <!--<property name="jcchome" location="C:\Program Files (x86)\Java\javacc-5.0"/>-->
+    <property name="jcchome" location="/usr/share/java/javacc-5.0"/>    
+    <property name="yapl.source" location="testFiles/test12.yapl"/>
     <!--
 
     There exist several targets which are by default empty and which can be 
@@ -71,4 +75,27 @@
     nbproject/build-impl.xml file. 
 
     -->
+    <target name="-pre-compile" description="Compile all JJ Files">        
+        <javacc target="src/ca3/yapl/parser/Parser.jj" javacchome="${jcchome}" outputdirectory="src/ca3/yapl/parser"/>
+    </target>
+    
+    <target name="run-ca3" description="runs Compiler Assignment 3" depends="compile">
+        <java classname="ca3.yapl.parser.Parser">
+            <classpath>
+                <pathelement location="build/classes"/>
+                <pathelement path="${java.class.path}"/>
+            </classpath>
+            <arg file="${yapl.source}"/>
+        </java>        
+    </target>
+    
+    <target name="-post-clean" description="Schmeiß olls weg wos wir nit brauchn">
+        <delete>
+            <fileset dir="src" includes="*.java" />
+        </delete>
+        <delete file="src/ca3/yapl/parser/Parser.java" />
+        <delete file="src/ca3/yapl/parser/ParserConstants.java" />
+        <delete file="src/ca3/yapl/parser/ParserTokenManager.java" />        
+    </target>
+    
 </project>

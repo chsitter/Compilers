@@ -1,0 +1,15 @@
+/* Symbol check test input.
+ * <expected result> ERROR 11 (line 13, column 9)
+ * identifier 'Mode' not declared
+ * $Id: test26.yapl 237 2012-04-12 12:43:30Z mt $
+ */
+Program test26
+Declare
+    Record Node
+        int id;
+    EndRecord;
+    Record Edge
+        Node from;
+        Mode to;
+    EndRecord;
+End test26.

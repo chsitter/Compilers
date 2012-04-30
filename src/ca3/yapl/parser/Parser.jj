@@ -1,0 +1,499 @@
+PARSER_BEGIN(Parser)
+
+package ca3.yapl.parser;
+
+import ca3.yapl.exceptions.IllegalUseException;
+import ca3.yapl.exceptions.ProcedureNameMismatchException;
+import ca3.yapl.exceptions.ProgramNameMismatchException;
+import ca3.yapl.exceptions.YAPLException;
+import ca3.yapl.impl.Symbol;
+import ca3.yapl.impl.SymbolTable;
+import ca3.yapl.interfaces.ISymbol;
+import ca3.yapl.lib.CompilerMessage;
+import java.io.FileInputStream;
+import java.io.IOException;
+
+public class Parser {
+    private static SymbolTable symbolTable = new SymbolTable();
+
+    public static void main(String args[]) {
+        try {
+            Parser parser = new Parser(new FileInputStream(args[0]));
+            parser.Program();
+
+            CompilerMessage.printOK("Parser");
+        } catch (ParseException pe) {
+            CompilerMessage.printError(pe, "Parser");
+        } catch (YAPLException ye) {
+            CompilerMessage.printError(ye, "Parser");
+        } catch (IOException e) {
+            System.err.println("something went wrong" + e);
+        }
+    }
+}
+
+PARSER_END(Parser)
+
+SKIP :
+{
+ " "
+| "\t"
+| "\n"
+| "\r"
+}
+
+TOKEN :
+{
+  < IF: "If" >
+|
+  < DO: "Do" >
+|
+  < OR: "Or" >
+|
+  < AND: "And" >
+|
+  < END: "End" >
+|
+  < INT: "int" >
+|
+  < NEW: "new" >
+|
+  < VOID: "void" >
+|
+  < TRUE: "True" >
+|
+  < ELSE: "Else" >
+|
+  < BOOL: "bool" >
+|
+  < THEN: "Then" >
+|
+  < FALSE: "False" >
+|
+  < WHILE: "While" >
+|
+  < WRITE: "Write" >
+|
+  < ENDIF: "EndIf" >
+|
+  < BEGIN: "Begin" >
+|
+  < CONST: "Const" >
+|
+  < RECORD: "Record" >
+|
+  < RETURN: "Return" >
+|
+  < DECLARE: "Declare" >
+|
+  < PROGRAM: "Program" >
+|
+  < ENDWHILE: "EndWhile" >
+|
+  < READONLY: "readonly" >
+|
+  < PROCEDURE: "Procedure" >
+|
+  < ENDRECORD: "EndRecord" >
+|
+  < #LETTER: ["a"-"z","A"-"Z","_"] >
+|
+  < #DIGIT: ["0"-"9"] >
+|
+  < LT: "<" >
+|
+  < LEQ: "<=" >
+|
+  < GT: ">" >
+|
+  < GEQ: ">=" >
+|
+  < EQ: "==" >
+|
+  < NEQ: "!=" >
+|
+  < PLUS: "+" >
+|
+  < MINUS: "-" >
+|
+  < MULT: "*" >
+|
+  < DIV: "/" >
+|
+  < MOD: "%" >
+|
+  < SQUARE_BRACKET_OPEN: "[" >
+|
+  < SQUARE_BRACKET_CLOSE: "]" >
+|
+  < DOT: "." >
+|
+  < HASH: "#" >
+|
+  < OPEN_PARENTH: "(" >
+|
+  < CLOSE_PARENTH: ")" >
+|
+  < COMMA: "," >
+|
+  < ASSIGN: ":=" >
+|
+  < SEMICOLON: ";" >
+|
+  < CONST_ASSIGN: "=" >
+|
+  < COMMENT_OPEN: "/*" >
+|
+  < COMMENT_CLOSE: "*/" >
+|
+  < QUOTE: "\"" >
+|
+  < #OTHERCHAR: "+" | "-" | "*" | "/" | "." | "," | ";" | ":" | "!" | "?" | "=" | "#" | "%" | "<" | ">" | "$" | "(" | ")" | "[" | "]" | "{" | "}" | "\\" | "@" | "&" | "^" | "|" >
+|
+  < IDENT: <LETTER> ( <LETTER> | <DIGIT> )* >
+|
+  < NUMBER: <DIGIT> ( <DIGIT> )* >
+|
+  < STRING: <QUOTE> ( " " | <LETTER> | <DIGIT> | <OTHERCHAR> )* <QUOTE> >
+}
+
+SPECIAL_TOKEN:
+{
+  < COMMENT: <COMMENT_OPEN> (~["*"] | (["*"]~["/"]))* <COMMENT_CLOSE> >
+}
+
+void RelOp() throws YAPLException :
+{}
+{
+    <LT> | <LEQ> | <GEQ> | <GT>
+}
+
+void EqualOp() throws YAPLException :
+{}
+{
+    <EQ> | <NEQ>
+}
+
+void AddOp() throws YAPLException :
+{}
+{
+    <PLUS> | <MINUS>
+}
+
+void MulOp() throws YAPLException :
+{}
+{
+    <MULT> | <DIV> | <MOD>
+}
+
+void Literal() throws YAPLException :
+{}
+{
+    <TRUE> | <FALSE> | <NUMBER>
+}
+
+void Selector() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    ( <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> | <DOT> tIdent=<IDENT> ) [ Selector() ]
+}
+
+void ArrayLen() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    <HASH> tIdent=<IDENT>
+        {
+            ISymbol s = symbolTable.lookup(tIdent);
+            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter) {
+                throw new IllegalUseException(s);
+            }
+        }
+    [ Selector() ]
+}
+
+void PrimaryExpr() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    Literal() | <OPEN_PARENTH> Expr() <CLOSE_PARENTH> | LOOKAHEAD(3) ProcedureCall() | tIdent=<IDENT> 
+        {
+            ISymbol s = symbolTable.lookup(tIdent);
+            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Constant && s.getKind() != ISymbol.Parameter)
+                throw new IllegalUseException(s);
+
+        }
+    [ Selector() ] | ArrayLen()
+
+}
+
+void UnaryExpr() throws YAPLException :
+{}
+{
+    [ AddOp() ] PrimaryExpr()
+}
+
+void MulExpr() throws YAPLException :
+{}
+{
+    UnaryExpr() ( MulOp() UnaryExpr() )*
+}
+
+void AddExpr() throws YAPLException :
+{}
+{
+    MulExpr() ( AddOp() MulExpr() )*
+}
+
+void RelExpr() throws YAPLException :
+{}
+{
+    AddExpr() [ RelOp() AddExpr() ]
+}
+
+void EqualExpr() throws YAPLException :
+{}
+{
+    RelExpr() [ EqualOp() RelExpr() ]
+}
+
+void CondAndExpr() throws YAPLException :
+{}
+{
+    EqualExpr() ( <AND> EqualExpr() )*
+}
+
+void CreationExpr() throws YAPLException :
+{}
+{
+    <NEW> StaticType() <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> [ <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> ]
+}
+
+void Expr() throws YAPLException :
+{}
+{
+    CondAndExpr() ( <OR> CondAndExpr() )* | CreationExpr()
+}
+
+void ArgumentList() throws YAPLException :
+{}
+{
+    Expr() ( <COMMA> Expr() )*
+}
+
+void ProcedureCall() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    tIdent=<IDENT> 
+        {
+            ISymbol s = symbolTable.lookup(tIdent);
+            if (s.getKind() != ISymbol.Procedure)
+                throw new IllegalUseException(s);
+            
+        }
+    <OPEN_PARENTH> [ ArgumentList() ] <CLOSE_PARENTH>
+}
+
+void Assignment() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    tIdent=<IDENT> 
+        {
+            ISymbol s = symbolTable.lookup(tIdent);
+            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
+                throw new IllegalUseException(s);
+        }
+    [ Selector() ] <ASSIGN> Expr()
+}
+
+void IfStatement() throws YAPLException :
+{}
+{
+    <IF> Expr() <THEN> StatementList() [ <THEN> StatementList() ] <ENDIF>
+}
+
+void WhileStatement() throws YAPLException :
+{}
+{
+    <WHILE> Expr() <DO> StatementList() <ENDWHILE>
+}
+
+void ReturnStatement() throws YAPLException :
+{}
+{
+    <RETURN> [ Expr() ]
+}
+
+void WriteStatement() throws YAPLException :
+{}
+{
+    <WRITE> <STRING>
+}
+
+void Statement() throws YAPLException :
+{}
+{
+    IfStatement() | WhileStatement() | ReturnStatement() | WriteStatement() | LOOKAHEAD(3) Assignment() | ProcedureCall() | Block()
+}
+
+void StatementList() throws YAPLException :
+{}
+{
+    ( Statement() <SEMICOLON> )*
+}
+
+void Block() throws YAPLException :
+{}
+{   { symbolTable.openScope(false); }
+    [ Decl() ] <BEGIN> StatementList() <END>
+    { symbolTable.closeScope(); }
+}
+
+void StaticType() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    <INT> | <BOOL> | tIdent=<IDENT> 
+        {
+            ISymbol s = symbolTable.lookup(tIdent);
+            if (s.getKind() != ISymbol.Typename) 
+                throw new IllegalUseException(s);
+        }
+}
+
+void Type() throws YAPLException :
+{}
+{
+    StaticType() ( <SQUARE_BRACKET_OPEN><SQUARE_BRACKET_CLOSE> )*
+}
+
+void ReturnType() throws YAPLException :
+{}
+{
+    <VOID> | Type()
+}
+
+void ConstDecl() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    <CONST> tIdent=<IDENT> 
+        {
+            ISymbol s = new Symbol(tIdent, ISymbol.Constant);
+            symbolTable.addSymbol(s);
+        }
+    <CONST_ASSIGN> Literal() <SEMICOLON>
+}
+
+void VarDecl() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    Type() tIdent=<IDENT> 
+        {
+            ISymbol s = new Symbol(tIdent, ISymbol.Variable);
+            symbolTable.addSymbol(s);
+        } 
+    ( <COMMA> tIdent=<IDENT>
+        {
+            s = new Symbol(tIdent, ISymbol.Variable);
+            symbolTable.addSymbol(s);
+        }
+    )* <SEMICOLON>
+}
+
+void TypeDecl() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    <RECORD> tIdent=<IDENT>
+        {
+            ISymbol s = new Symbol(tIdent, ISymbol.Typename);
+            symbolTable.addSymbol(s);
+            symbolTable.openScope(false);
+        }
+    (VarDecl() )+ 
+        {
+            symbolTable.closeScope();
+        }
+    <ENDRECORD>
+}
+
+void Decl() throws YAPLException :
+{}
+{
+    <DECLARE> ( ConstDecl() | VarDecl() | TypeDecl() )*
+}
+
+void FormalParam() throws YAPLException :
+{
+    Token tIdent;
+}
+{
+    [ <READONLY> ] Type() tIdent=<IDENT>
+        {
+            ISymbol s = new Symbol(tIdent, ISymbol.Parameter);
+            symbolTable.addSymbol(s);
+            //TODO: set nex param ?? parent symbol ??
+        }
+}
+
+void FormalParamList() throws YAPLException :
+{}
+{
+    FormalParam() ( <COMMA> FormalParam() )*
+}
+
+void Procedure() throws YAPLException :
+{
+    Token tStartIdent;
+    Token tEndIdent;
+}
+{
+    <PROCEDURE> ReturnType() tStartIdent=<IDENT>
+        {
+            ISymbol s = new Symbol(tStartIdent, ISymbol.Procedure);
+            symbolTable.addSymbol(s);
+            symbolTable.openScope(false);
+        }
+    <OPEN_PARENTH> [ FormalParamList() ] <CLOSE_PARENTH> Block() tEndIdent=<IDENT>
+        {
+            if (!tEndIdent.image.equals(tStartIdent.image)) throw new ProcedureNameMismatchException(tStartIdent, tEndIdent);
+            symbolTable.closeScope();            
+        }
+    <SEMICOLON>
+}
+
+void Program() throws YAPLException :
+{
+    Token tStartIdent;
+    Token tEndIdent;    
+}
+{
+    <PROGRAM> tStartIdent=<IDENT>
+        {
+            symbolTable.openScope(false);
+            ISymbol s = new Symbol(tStartIdent, ISymbol.Program);
+            symbolTable.openScope(true);
+            
+        }
+    ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>
+        {            
+            if (!tEndIdent.image.equals(tStartIdent.image)) throw new ProgramNameMismatchException(tStartIdent, tEndIdent);
+            symbolTable.closeScope();
+            symbolTable.closeScope();            
+        }
+    <DOT>
+}

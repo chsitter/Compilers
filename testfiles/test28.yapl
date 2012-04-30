@@ -1,0 +1,14 @@
+/* Symbol check test input.
+ * <expected result> ERROR 10 (line 10, column 13)
+ * symbol 'id' already declared in current scope (as field)
+ * $Id: test28.yapl 237 2012-04-12 12:43:30Z mt $
+ */
+Program test28
+Declare
+    Record Node
+        int id;
+        int id;
+    EndRecord;
+
+Begin
+End test28.

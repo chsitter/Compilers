@@ -1,0 +1,10 @@
+/* Symbol check test input.
+ * <expected result> ERROR 12 (line 9, column 5)
+ * illegal use of constant 'NUM'
+ * $Id: test25.yapl 237 2012-04-12 12:43:30Z mt $
+ */
+Program test25
+Declare
+    Const NUM = 10;
+    NUM n;
+End test25.

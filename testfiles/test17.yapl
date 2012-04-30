@@ -1,0 +1,13 @@
+/* Symbol check test input.
+ * <expected result> ERROR 12 (line 12, column 16)
+ * illegal use of constant 'len'
+ * $Id: test17.yapl 161 2011-03-14 10:46:30Z mt $
+ */
+Program test17
+Declare
+    Const len = 20;
+    int[] arr;
+
+Begin
+    arr[0] := #len;
+End test17.

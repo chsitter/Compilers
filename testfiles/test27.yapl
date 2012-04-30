@@ -1,0 +1,17 @@
+/* Symbol check test input.
+ * <expected result> ERROR 10 (line 12, column 16)
+ * symbol 'Node' already declared in current scope (as typename)
+ * $Id: test27.yapl 237 2012-04-12 12:43:30Z mt $
+ */
+Program test27
+Declare
+    Record Node
+        int id;
+    EndRecord;
+
+Procedure void Node()
+Begin
+End Node;
+
+Begin
+End test27.
