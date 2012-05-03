@@ -18,7 +18,14 @@ public class Parser {
 
     public static void main(String args[]) {
         try {
-            Parser parser = new Parser(new FileInputStream(args[0]));
+            String file;
+            if (args == null || args.length < 1) {
+                file = "testFiles/test14.yapl";
+            } else {
+                file = args[0];
+            }
+            
+            Parser parser = new Parser(new FileInputStream(file));
             parser.Program();
 
             CompilerMessage.printOK("Parser");

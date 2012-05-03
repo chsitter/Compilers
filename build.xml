@@ -13,7 +13,7 @@
 
     <!--<property name="jcchome" location="C:\Program Files (x86)\Java\javacc-5.0"/>-->
     <property name="jcchome" location="/usr/share/java/javacc-5.0"/>    
-    <property name="yapl.source" location="testFiles/test12.yapl"/>
+    <property name="yapl.source" location="testFiles/test14.yapl"/>
     <!--
 
     There exist several targets which are by default empty and which can be 

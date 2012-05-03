@@ -4,12 +4,12 @@
  */
 package ca3.yapl.impl;
 
-import ca3.yapl.parser.Token;
 import ca3.yapl.exceptions.IdentifierNotDeclaredException;
 import ca3.yapl.exceptions.SymbolAlreadyDeclaredException;
+import ca3.yapl.exceptions.YAPLException;
 import ca3.yapl.interfaces.ISymbol;
 import ca3.yapl.interfaces.ISymboltable;
-import ca3.yapl.exceptions.YAPLException;
+import ca3.yapl.parser.Token;
 import java.util.ArrayList;
 
 /**
