@@ -15,6 +15,7 @@ import java.io.IOException;
 
 public class Parser {
     private static SymbolTable symbolTable = new SymbolTable();
+    private static Token tProgramName = null;
 
     public static void main(String args[]) {
         try {
@@ -28,11 +29,11 @@ public class Parser {
             Parser parser = new Parser(new FileInputStream(file));
             parser.Program();
 
-            CompilerMessage.printOK("Parser");
+            CompilerMessage.printOK(tProgramName.image);
         } catch (ParseException pe) {
-            CompilerMessage.printError(pe, "Parser");
+            CompilerMessage.printError(pe, tProgramName.image);
         } catch (YAPLException ye) {
-            CompilerMessage.printError(ye, "Parser");
+            CompilerMessage.printError(ye, tProgramName.image);
         } catch (IOException e) {
             System.err.println("something went wrong" + e);
         }
@@ -216,7 +217,7 @@ void ArrayLen() throws YAPLException :
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter) {
-                throw new IllegalUseException(s);
+                throw new IllegalUseException(s, tIdent);
             }
         }
     [ Selector() ]
@@ -227,11 +228,11 @@ void PrimaryExpr() throws YAPLException :
     Token tIdent;
 }
 {
-    Literal() | <OPEN_PARENTH> Expr() <CLOSE_PARENTH> | LOOKAHEAD(3) ProcedureCall() | tIdent=<IDENT> 
+    Literal() | <OPEN_PARENTH> Expr() <CLOSE_PARENTH> | LOOKAHEAD(2) ProcedureCall() | tIdent=<IDENT> 
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Constant && s.getKind() != ISymbol.Parameter)
-                throw new IllegalUseException(s);
+                throw new IllegalUseException(s, tIdent);
 
         }
     [ Selector() ] | ArrayLen()
@@ -301,7 +302,7 @@ void ProcedureCall() throws YAPLException :
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Procedure)
-                throw new IllegalUseException(s);
+                throw new IllegalUseException(s, tIdent);
             
         }
     <OPEN_PARENTH> [ ArgumentList() ] <CLOSE_PARENTH>
@@ -316,7 +317,7 @@ void Assignment() throws YAPLException :
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
-                throw new IllegalUseException(s);
+                throw new IllegalUseException(s, tIdent);
         }
     [ Selector() ] <ASSIGN> Expr()
 }
@@ -373,7 +374,7 @@ void StaticType() throws YAPLException :
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Typename) 
-                throw new IllegalUseException(s);
+                throw new IllegalUseException(s, tIdent);
         }
 }
 
@@ -435,7 +436,7 @@ void TypeDecl() throws YAPLException :
         {
             symbolTable.closeScope();
         }
-    <ENDRECORD>
+    <ENDRECORD> <SEMICOLON>
 }
 
 void Decl() throws YAPLException :
@@ -485,20 +486,19 @@ void Procedure() throws YAPLException :
 
 void Program() throws YAPLException :
 {
-    Token tStartIdent;
     Token tEndIdent;    
 }
 {
-    <PROGRAM> tStartIdent=<IDENT>
+    <PROGRAM> tProgramName=<IDENT>
         {
             symbolTable.openScope(false);
-            ISymbol s = new Symbol(tStartIdent, ISymbol.Program);
+            ISymbol s = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.openScope(true);
             
         }
     ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>
         {            
-            if (!tEndIdent.image.equals(tStartIdent.image)) throw new ProgramNameMismatchException(tStartIdent, tEndIdent);
+            if (!tEndIdent.image.equals(tProgramName.image)) throw new ProgramNameMismatchException(tProgramName, tEndIdent);
             symbolTable.closeScope();
             symbolTable.closeScope();            
         }

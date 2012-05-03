@@ -11,9 +11,9 @@
     <description>Builds, tests, and runs the project Compilers.</description>
     <import file="nbproject/build-impl.xml"/>
 
-    <!--<property name="jcchome" location="C:\Program Files (x86)\Java\javacc-5.0"/>-->
-    <property name="jcchome" location="/usr/share/java/javacc-5.0"/>    
-    <property name="yapl.source" location="testFiles/test14.yapl"/>
+    <property name="javacc" location="C:\Program Files (x86)\Java\javacc-5.0"/>
+    <!--<property name="jcchome" location="/usr/share/java/javacc-5.0"/>   --> 
+    <property name="yapl" location="testFiles/test01.yapl"/>
     <!--
 
     There exist several targets which are by default empty and which can be 
@@ -76,16 +76,16 @@
 
     -->
     <target name="-pre-compile" description="Compile all JJ Files">        
-        <javacc target="src/ca3/yapl/parser/Parser.jj" javacchome="${jcchome}" outputdirectory="src/ca3/yapl/parser"/>
+        <javacc target="src/ca3/yapl/parser/Parser.jj" javacchome="${javacc}" outputdirectory="src/ca3/yapl/parser"/>
     </target>
     
-    <target name="run-ca3" description="runs Compiler Assignment 3" depends="compile">
+    <target name="run" description="runs Compiler Assignment 3" depends="compile">
         <java classname="ca3.yapl.parser.Parser">
             <classpath>
                 <pathelement location="build/classes"/>
                 <pathelement path="${java.class.path}"/>
             </classpath>
-            <arg file="${yapl.source}"/>
+            <arg file="${yapl}"/>
         </java>        
     </target>
     

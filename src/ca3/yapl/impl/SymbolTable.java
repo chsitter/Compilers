@@ -72,12 +72,11 @@ public class SymbolTable implements ISymboltable {
             throw new YAPLException(YAPLException.Internal);
                 
         debugOut("adding symbol " + s.getName());
-        int idx = useGlobalScope ? globalScopeIdx : scopes.size() -1;
         
         Scope curScope = getCurrentScope();
         
         if(curScope.getSymbols().containsKey(s.getName())) 
-            throw new SymbolAlreadyDeclaredException(s);
+            throw new SymbolAlreadyDeclaredException(curScope.getSymbols().get(s.getName()), s);
         
         curScope.getSymbols().put(s.getName(), s);
     }

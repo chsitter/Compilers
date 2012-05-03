@@ -5,6 +5,7 @@
 package ca3.yapl.exceptions;
 
 import ca3.yapl.interfaces.ISymbol;
+import ca3.yapl.parser.Token;
 
 /**
  *
@@ -12,7 +13,7 @@ import ca3.yapl.interfaces.ISymbol;
  */
 public class IllegalUseException extends YAPLException {
     
-    public IllegalUseException(ISymbol symbol) {
-        super(SymbolIllegalUse, "illegal use of " + symbol.getKindString() + " " + symbol.getName(), symbol);
+    public IllegalUseException(ISymbol originalSymbol, Token illegalToken) {
+        super(SymbolIllegalUse, "illegal use of " + originalSymbol.getKindString() + " " + originalSymbol.getName(), illegalToken);
     }
 }

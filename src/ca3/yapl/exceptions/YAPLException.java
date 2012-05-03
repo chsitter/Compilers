@@ -44,6 +44,15 @@ public class YAPLException extends Exception implements CompilerError {
             }        
         }
     }
+    
+    public YAPLException(int errorCode, String message, Token t) {
+        this(errorCode, message);
+        
+        if (t != null) {
+            this.line = t.beginLine;
+            this.column = t.beginColumn;
+        }
+    }
 
     @Override
     public int errorNumber() {

@@ -5,13 +5,14 @@
 package ca3.yapl.exceptions;
 
 import ca3.yapl.interfaces.ISymbol;
+import ca3.yapl.parser.Token;
 
 /**
  *
  * @author chsitter
  */
 public class SymbolAlreadyDeclaredException extends YAPLException {
-    public SymbolAlreadyDeclaredException(ISymbol symbol) {
-        super(SymbolExists, "symbol " + symbol.getName() + " already declared in current scope (as " + symbol.getKindString() + ")", symbol);
+    public SymbolAlreadyDeclaredException(ISymbol originalSymbol, ISymbol illegalSymbol) {
+        super(SymbolExists, "symbol " + originalSymbol.getName() + " already declared in current scope (as " + originalSymbol.getKindString() + ")", illegalSymbol);
     }
 }
