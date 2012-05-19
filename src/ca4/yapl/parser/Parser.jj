@@ -1,15 +1,15 @@
 PARSER_BEGIN(Parser)
 
-package ca3.yapl.parser;
+package ca4.yapl.parser;
 
-import ca3.yapl.exceptions.IllegalUseException;
-import ca3.yapl.exceptions.ProcedureNameMismatchException;
-import ca3.yapl.exceptions.ProgramNameMismatchException;
-import ca3.yapl.exceptions.YAPLException;
-import ca3.yapl.impl.Symbol;
-import ca3.yapl.impl.SymbolTable;
-import ca3.yapl.interfaces.ISymbol;
-import ca3.yapl.lib.CompilerMessage;
+import ca4.yapl.exceptions.IllegalUseException;
+import ca4.yapl.exceptions.ProcedureNameMismatchException;
+import ca4.yapl.exceptions.ProgramNameMismatchException;
+import ca4.yapl.exceptions.YAPLException;
+import ca4.yapl.impl.Symbol;
+import ca4.yapl.impl.SymbolTable;
+import ca4.yapl.interfaces.ISymbol;
+import ca4.yapl.lib.CompilerMessage;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -37,6 +37,17 @@ public class Parser {
         } catch (IOException e) {
             System.err.println("something went wrong" + e);
         }
+    }
+    
+    /** Output function for additional information */
+    private static void info(String s) {
+      if(displayInfo)
+		System.out.println("> Compiler: " + s);
+    }
+    
+    /** Output function for additional information */
+    private static void info(String s, Token t) {
+		info(s + " '"+t.image+"'");
     }
 }
 
@@ -194,18 +205,45 @@ void MulOp() throws YAPLException :
     <MULT> | <DIV> | <MOD>
 }
 
-void Literal() throws YAPLException :
-{}
+/* Literal = "True" | "False" | number . */
+Attrib Literal() throws YAPLException :
 {
-    <TRUE> | <FALSE> | <NUMBER>
+	{info("Found: Literal");}
+	Token tok;
+}
+{
+
+	<TRUE>				{info("Found: <TRUE>");}
+	{ return new simple.impl.Attrib(Attrib.Constant, new BoolType(true)); }
+	
+	| <FALSE>			{info("Found: <FALSE>");}
+	{ return new simple.impl.Attrib(Attrib.Constant, new BoolType(false)); }
+		
+	| tok = <NUMBER>	{info("Found: <NUMBER>", tok);}
+	{ return new simple.impl.Attrib(
+	  	Attrib.Constant,new IntType(Integer.parseInt(tok.image)) ); }
+
 }
 
-void Selector() throws YAPLException :
+Type Selector(IAttrib parent) throws YAPLException :
 {
     Token tIdent;
+    Type type = parent.getType();
 }
 {
-    ( <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> | <DOT> tIdent=<IDENT> ) [ Selector() ]
+    ( <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE>
+        {
+            if (!(type instanceof ArrayType))
+                throw new YAPLException(CompilerError.SelectorNotArray);
+            type = ((ArrayType)type).subarray(1);
+        }
+    | <DOT> tIdent=<IDENT>
+        {
+            if (!(type instanceof RecordType))
+                throw new YAPLException(CompilerError.SymbolIllegalUse);
+            
+        }
+     ) [ Selector(type/*TODO*/) ]
 }
 
 void ArrayLen() throws YAPLException :
@@ -365,23 +403,68 @@ void Block() throws YAPLException :
     { symbolTable.closeScope(); }
 }
 
-void StaticType() throws YAPLException :
+Type StaticType() throws YAPLException :
 {
+    {info("Found: StaticType");}
     Token tIdent;
 }
 {
-    <INT> | <BOOL> | tIdent=<IDENT> 
+    <INT>
+        {
+            info("Found: <INT>");
+            return new IntType();
+        }
+
+    | <BOOL>
+        {
+            info("Found: <BOOL>");
+            return new BoolType();
+        }
+
+    | tIdent=<IDENT> 
         {
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Typename) 
                 throw new IllegalUseException(s, tIdent);
+            info("Found: Typename " + s);
+            return s.getType();
         }
 }
 
-void Type() throws YAPLException :
-{}
+/* Type = PrimType [ "[" "]" ] . */
+Type Type() :
 {
-    StaticType() ( <SQUARE_BRACKET_OPEN><SQUARE_BRACKET_CLOSE> )*
+	{info("Found: Type");}
+    Type t;
+}
+{
+    t = PrimType()
+    [
+      <BRACKET_LEFT> <BRACKET_RIGHT>		{info("Found: <BRACKET_LEFT> <BRACKET_RIGHT>");}
+      {
+        t = new ArrayType(t);
+      }
+    ]
+	{
+	  return t;
+	}
+}
+
+Type Type() throws YAPLException :
+{
+    info("Found: Type");
+    Type t;
+}
+{
+    t = StaticType()
+    ( 
+        <SQUARE_BRACKET_OPEN><SQUARE_BRACKET_CLOSE>
+        t = new ArrayType(t);
+    )*
+
+    {
+        return t;
+    }
 }
 
 void ReturnType() throws YAPLException :
@@ -448,11 +531,24 @@ void Decl() throws YAPLException :
 void FormalParam() throws YAPLException :
 {
     Token tIdent;
+    boolean readonly = false;
+    Type type;
 }
 {
-    [ <READONLY> ] Type() tIdent=<IDENT>
+    [ <READONLY>
+        {
+            readonly = true;
+        }
+    ] type = Type()
+        {
+            if (readonly && !(type instanceof ArrayType || type instanceof RecordType))
+                throw new YAPLException(CompilerError.ReadonlyNotArray);
+            type.setReadonly(readonly);
+        }
+     tIdent=<IDENT>
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Parameter);
+            s.setType(type);
             symbolTable.addSymbol(s);
             //TODO: set nex param ?? parent symbol ??
         }

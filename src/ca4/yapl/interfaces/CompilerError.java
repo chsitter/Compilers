@@ -1,11 +1,11 @@
-package ca3.yapl.interfaces;
+package ca4.yapl.interfaces;
 
 /** Generic YAPL compiler error interface.
  * It defines error numbers and common methods of exception and error types
  * thrown by the YAPL compiler.
  * 
  * @author Mario Taschwer
- * @version $Id: CompilerError.java 247 2012-05-07 14:25:35Z mt $
+ * @version $Id: CompilerError.java 141 2010-03-16 17:17:56Z mt $
  */
 public interface CompilerError {
 
@@ -59,8 +59,8 @@ public interface CompilerError {
 	public static final int TooFewArgs           = 32;
 	/** Condition is not a boolean expression. */
 	public static final int CondNotBool          = 33;
-	/** Readonly not followed by reference type. */
-	public static final int ReadonlyNotReference = 34; 
+	/** Readonly not followed by array type. */
+	public static final int ReadonlyNotArray     = 34; 
 	/** Missing return statement in function. */
 	public static final int MissingReturn        = 35;
 	/** Returning none or invalid type from function. */
@@ -69,10 +69,6 @@ public interface CompilerError {
 	public static final int IllegalRetValProc    = 37;
 	/** Illegal return value in main program. */
 	public static final int IllegalRetValMain    = 38;
-	/** Expression before '.' is not a record type. */
-	public static final int SelectorNotRecord    = 39;
-	/** invalid field of record */
-	public static final int InvalidRecordField   = 40;
 
 	/* Code generation errors */
 	
