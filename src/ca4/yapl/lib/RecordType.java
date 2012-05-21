@@ -26,6 +26,14 @@ public class RecordType extends Type {
     public ISymbol getMember(int i) {
         return members.get(i);
     }
+    
+    public ISymbol getMember(String name) {        
+        for (ISymbol member : members) {
+            if (member.getName().equals(name))
+                return member;
+        }
+        return null;
+    }
 
     @Override
     public boolean isCompatible(Type other) {

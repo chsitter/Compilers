@@ -143,4 +143,7 @@ public interface ISymbol {
     public String toString();
     
     public Token getToken();
+    
+    public boolean isReadonly();
+    public void setReadonly(boolean readonly);
 }

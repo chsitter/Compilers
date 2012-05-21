@@ -23,6 +23,7 @@ public class Symbol implements ISymbol {
     private ISymbol next;
     private boolean returnSeen;
     private Token token = null;
+    private boolean readonly = false;
     
     public Symbol(String name, int kind) {
         this.name = name;
@@ -135,5 +136,15 @@ public class Symbol implements ISymbol {
     @Override
     public Token getToken() {
         return token;
+    }
+
+    @Override
+    public boolean isReadonly() {
+        return readonly;
+    }
+
+    @Override
+    public void setReadonly(boolean readonly) {
+        this.readonly = readonly;
     }
 }

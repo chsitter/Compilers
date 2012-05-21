@@ -214,141 +214,322 @@ Attrib Literal() throws YAPLException :
 {
 
 	<TRUE>				{info("Found: <TRUE>");}
-	{ return new simple.impl.Attrib(Attrib.Constant, new BoolType(true)); }
+	{ return new Attrib(Attrib.Constant, new BoolType(true)); }
 	
 	| <FALSE>			{info("Found: <FALSE>");}
-	{ return new simple.impl.Attrib(Attrib.Constant, new BoolType(false)); }
+	{ return new Attrib(Attrib.Constant, new BoolType(false)); }
 		
 	| tok = <NUMBER>	{info("Found: <NUMBER>", tok);}
-	{ return new simple.impl.Attrib(
-	  	Attrib.Constant,new IntType(Integer.parseInt(tok.image)) ); }
+	{ return new Attrib(Attrib.Constant,new IntType(Integer.parseInt(tok.image)) ); }
 
 }
 
-Type Selector(IAttrib parent) throws YAPLException :
+IAttrib Selector(IAttrib parent) throws YAPLException :
 {
     Token tIdent;
     Type type = parent.getType();
+    IAttrib attr;
+    IAttrib idx;
 }
 {
-    ( <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE>
+    ( <SQUARE_BRACKET_OPEN> idx = Expr() <SQUARE_BRACKET_CLOSE>
         {
             if (!(type instanceof ArrayType))
                 throw new YAPLException(CompilerError.SelectorNotArray);
             type = ((ArrayType)type).subarray(1);
+
+            if (!(idx.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.BadArraySelector);
+
+            attr = new Attrib(type, parent.isConstant());
         }
     | <DOT> tIdent=<IDENT>
         {
             if (!(type instanceof RecordType))
                 throw new YAPLException(CompilerError.SymbolIllegalUse);
             
+            ISymbol sym = ((RecordType)type).getMember(tIdent.image);
+            if (sym == null)
+                throw new YAPLException(CompilerError.IdentNotDecl);            
+            type = sym.getType();
+            attr = new Attrib(type, parent.isConstant());
         }
-     ) [ Selector(type/*TODO*/) ]
+    ) [ attr=Selector(attr) ]
+    {
+        return attr;
+    }
 }
 
-void ArrayLen() throws YAPLException :
+IAttrib ArrayLen() throws YAPLException :
 {
     Token tIdent;
+    IAttrib arrayAttr;
+    IAttrib resultAttr;
 }
 {
     <HASH> tIdent=<IDENT>
         {
             ISymbol s = symbolTable.lookup(tIdent);
-            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter) {
+
+            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
                 throw new IllegalUseException(s, tIdent);
+            
+            arrayAttr = new Attrib(s);
+        }
+    [ arrayAttr = Selector() ]
+    {
+        if (!(arrayAttr.getType() instanceof ArrayType))
+            throw new YAPLException(CompilerError.ArrayLenNotArray);
+
+        resultAttr = new Attrib(new IntType(), true);
+        return resultAttr;
+    }
+}
+
+IAttrib PrimaryExpr() throws YAPLException :
+{
+    Token tIdent;
+    IAttrib resultAttr;
+}
+{
+    (
+        resultAttr = Literal() | <OPEN_PARENTH> resultAttr = Expr() <CLOSE_PARENTH> | LOOKAHEAD(2) resultAttr = ProcedureCall() | tIdent=<IDENT> 
+            {
+                ISymbol s = symbolTable.lookup(tIdent);
+                if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Constant && s.getKind() != ISymbol.Parameter)
+                    throw new IllegalUseException(s, tIdent);
+                resultAttr = new Attrib(s);
             }
-        }
-    [ Selector() ]
+        [ resultAttr = Selector(new Attrib(s)) ] | resultAttr = ArrayLen()
+    )
+    {
+        return resultAttr;
+    }
 }
 
-void PrimaryExpr() throws YAPLException :
+IAttrib UnaryExpr() throws YAPLException :
 {
-    Token tIdent;
+    IAttrib resultAttr;
 }
 {
-    Literal() | <OPEN_PARENTH> Expr() <CLOSE_PARENTH> | LOOKAHEAD(2) ProcedureCall() | tIdent=<IDENT> 
+    [ AddOp() ] resultAttr = PrimaryExpr()
+    {
+        if (!(resultAttr.getType() instanceof IntType))
+            throw new YAPLException(CompilerError.IllegalOp1Type);
+
+        return resultAttr;
+    }
+}
+
+IAttrib MulExpr() throws YAPLException :
+{
+    IAttrib lvalue, rvalue;
+}
+{
+    lvalue = UnaryExpr()
+    {
+        if (!(lvalue.getType() instanceof IntType))
+            throw new YAPLException(CompilerError.IllegalOp2Type);
+    }
+    (
+        MulOp() rvalue = UnaryExpr()
         {
-            ISymbol s = symbolTable.lookup(tIdent);
-            if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Constant && s.getKind() != ISymbol.Parameter)
-                throw new IllegalUseException(s, tIdent);
-
+            if (!(rvalue.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.IllegalOp2Type);
         }
-    [ Selector() ] | ArrayLen()
-
+    )*
+    {
+        return lvalue;
+    }
 }
 
-void UnaryExpr() throws YAPLException :
-{}
+IAttrib AddExpr() throws YAPLException :
 {
-    [ AddOp() ] PrimaryExpr()
+    IAttrib lvalue, rvalue;
 }
-
-void MulExpr() throws YAPLException :
-{}
 {
-    UnaryExpr() ( MulOp() UnaryExpr() )*
+    lvalue = MulExpr()
+    {
+        if (!(lvalue.getType() instanceof IntType))
+            throw new YAPLException(CompilerError.IllegalOp2Type);
+    }
+    (
+        AddOp() rvalue = MulExpr()
+        {
+            if (!(rvalue.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.IllegalOp2Type);
+        }
+    )*
+    {
+        return lvalue;
+    }
 }
 
-void AddExpr() throws YAPLException :
-{}
+IAttrib RelExpr() throws YAPLException :
 {
-    MulExpr() ( AddOp() MulExpr() )*
+    IAttrib lvalue, rvalue;
 }
-
-void RelExpr() throws YAPLException :
-{}
 {
-    AddExpr() [ RelOp() AddExpr() ]
+    lvalue = AddExpr() [ RelOp() rvalue = AddExpr() ]
+    {
+        if (!(lvalue instanceof IntType && rvalue instanceof IntType))
+            throw new YAPLException(CompilerError.IllegalOp2Type);
+        
+        return new Attrib(new BoolType(), true);
+    }
 }
 
-void EqualExpr() throws YAPLException :
-{}
+IAttrib EqualExpr() throws YAPLException :
 {
-    RelExpr() [ EqualOp() RelExpr() ]
+    IAttrib lvalue, rvalue;
 }
-
-void CondAndExpr() throws YAPLException :
-{}
 {
-    EqualExpr() ( <AND> EqualExpr() )*
+    lvalue = RelExpr() [ EqualOp() rvalue = RelExpr() ]
+    {
+        if (!lvalue.isCompatible(rvalue))
+            throw new YAPLException(CompilerError.IllegalEqualOpType);
+        if (!(lvalue instanceof IntType || rvalue instanceof IntType || lvalue instanceof BoolType || rvalue instanceof BoolType))
+            throw new YAPLException(CompilerError.IllegalEqualOpType);
+        return new Attrib(new BoolType(), true);
+    }
 }
 
-void CreationExpr() throws YAPLException :
-{}
+IAttrib CondAndExpr() throws YAPLException :
 {
-    <NEW> StaticType() <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> [ <SQUARE_BRACKET_OPEN> Expr() <SQUARE_BRACKET_CLOSE> ]
+    IAttrib lvalue, rvalue;
 }
-
-void Expr() throws YAPLException :
-{}
 {
-    CondAndExpr() ( <OR> CondAndExpr() )* | CreationExpr()
+    lvalue = EqualExpr()
+    {
+        if (!(lvalue instanceof BoolType))
+            throw new YAPLException(CompilerError.IllegalOp2Type);
+    }
+    (
+        <AND> rvalue = EqualExpr()
+        {
+            if (!(rvalue instanceof BoolType))
+                throw new YAPLException(CompilerError.IllegalOp2Type);
+        }
+    )*
+    {
+        return lvalue;
+    }
 }
 
-void ArgumentList() throws YAPLException :
-{}
+IAttrib CreationExpr() throws YAPLException :
 {
-    Expr() ( <COMMA> Expr() )*
+    Type type;
+    ArrayType resultType;
+    IAttrib dim;
+}
+{
+    <NEW> type = StaticType()
+    {
+        resultType = new ArrayType(type);
+        resultType.setDim(1);
+    }
+    <SQUARE_BRACKET_OPEN> dim = Expr() <SQUARE_BRACKET_CLOSE>
+    {
+        if (!(dim instanceof IntType))
+            throw new YAPLException(CompilerError.BadArraySelector);
+    }
+    [
+        <SQUARE_BRACKET_OPEN> dim = Expr() <SQUARE_BRACKET_CLOSE>
+        {
+            resultType.setDim(2);
+
+            if (!(dim instanceof IntType))
+                throw new YAPLException(CompilerError.BadArraySelector);
+        }
+    ]
+    {
+        return new Attrib(resultType, false);
+    }
 }
 
-void ProcedureCall() throws YAPLException :
+IAttrib Expr() throws YAPLException :
+{
+    IAttrib lvalue, rvalue;
+}
+{
+    (
+        lvalue = CondAndExpr()
+        {
+            if (!(lvalue instanceof BoolType))
+                throw new YAPLException(CompilerError.IllegalOp2Type);
+        }
+        (
+            <OR> rvalue = CondAndExpr()
+            {
+                if (!(rvalue instanceof BoolType))
+                    throw new YAPLException(CompilerError.IllegalOp2Type);
+            }
+        )* | lvalue = CreationExpr()
+    )
+    {
+        return lvalue;
+    }
+}
+
+int ArgumentList(ProcedureSymbol s) throws YAPLException :
+{
+    int i = 0;
+    int paramCount = s.getParamtersCount();
+    IAttrib arg;
+    ISymbol param;
+}
+{
+    arg = Expr()
+    {
+        param = s.getParameter(i);
+        if (i >= paramCount - 1 || !arg.getType().isCompatible(param))
+            throw new YAPLException(CompilerError.ArgNotApplicable);
+        if (arg.isConstant() && !(param.getType() instanceof IntType) && !(param.getType() instanceof BoolType) && !param.isReadonly())
+            throw new YAPLException(CompilerError.ReadonlyArg);
+        i++;
+    }
+    (
+        <COMMA> arg = Expr()
+        {
+            param = s.getParameter(i);
+            if (i >= paramCount - 1 || !arg.getType().isCompatible(param))
+                throw new YAPLException(CompilerError.ArgNotApplicable);
+            i++;
+        }
+    )*
+
+    if (i < paramCount)
+        throw new YAPLException(CompilerError.TooFewArgs);
+
+    return i;
+}
+
+IAttrib ProcedureCall() throws YAPLException :
 {
     Token tIdent;
+    IAttrib resultAttr;
+    int argCount = -1;
 }
 {
     tIdent=<IDENT> 
         {
             ISymbol s = symbolTable.lookup(tIdent);
-            if (s.getKind() != ISymbol.Procedure)
+            if (!(s.getKind() instanceof ProcedureSymbol))
                 throw new IllegalUseException(s, tIdent);
-            
+            resultAttr = new Attrib(s);
         }
-    <OPEN_PARENTH> [ ArgumentList() ] <CLOSE_PARENTH>
+    <OPEN_PARENTH> [ argCount = ArgumentList((ProcedureSymbol)s) ] <CLOSE_PARENTH>
+    {
+        if (argCount == -1 && s.getParametersCount() > 0)
+            throw new YAPLException(CompilerError.TooFewArgs);
+        return resultAttr;
+    }
 }
 
 void Assignment() throws YAPLException :
 {
     Token tIdent;
+    IAttrib lvalue;
 }
 {
     tIdent=<IDENT> 
@@ -356,26 +537,57 @@ void Assignment() throws YAPLException :
             ISymbol s = symbolTable.lookup(tIdent);
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
                 throw new IllegalUseException(s, tIdent);
+            lvalue = new Attrib(s);
         }
-    [ Selector() ] <ASSIGN> Expr()
+    [ lvalue = Selector(lvalue) ] <ASSIGN> Expr()
+    {
+        if (lvalue.isConstant())
+            throw new YAPLException(CompilerError.ReadonlyAssign);
+        if (!lvalue.isCompatible(rvalue))
+            throw new YAPLException(CompilerError.TypeMismatchAssign);
+    }
 }
 
 void IfStatement() throws YAPLException :
-{}
 {
-    <IF> Expr() <THEN> StatementList() [ <ELSE> StatementList() ] <ENDIF>
+    IAttrib attr;
+}
+{
+    <IF> attr = Expr()
+    {
+        if (!(attr.getType() instanceof BoolType))
+            throw new YAPLException(CompilerError.CondNotBool);
+    }
+    <THEN> StatementList() [ <ELSE> StatementList() ] <ENDIF>
 }
 
 void WhileStatement() throws YAPLException :
-{}
 {
-    <WHILE> Expr() <DO> StatementList() <ENDWHILE>
+    IAttrib attr;
+}
+{
+    <WHILE> attr = Expr()
+    {
+        if (!(attr.getType() instanceof BoolType))
+            throw new YAPLException(CompilerError.CondNotBool);
+    }
+    <DO> StatementList() <ENDWHILE>
 }
 
 void ReturnStatement() throws YAPLException :
-{}
 {
-    <RETURN> [ Expr() ]
+    IAttrib retAttr = new Attrib(new VoidType, true);
+}
+{
+    <RETURN> [ retAttr = Expr() ]
+    {
+        ISymbol s = SymbolTable.getNearestParentSymbol(ISymbol.Procedure);
+        if (s == null)
+            s = SymbolTable.getNearestParentSymbol(ISymbol.Program);
+        s.setReturnSeen(true);
+        if(!s.getType().isCompatible(retAttr))
+            throw new YAPLException(CompilerError.InvalidReturnType);
+    }
 }
 
 void WriteStatement() throws YAPLException :
@@ -467,39 +679,65 @@ Type Type() throws YAPLException :
     }
 }
 
-void ReturnType() throws YAPLException :
-{}
+Type ReturnType() throws YAPLException :
 {
-    <VOID> | Type()
+    Type t;
+}
+{
+    (
+        <VOID> { t = new VoidType(); }
+        | t = Type()
+    )
+    {
+        return t;
+    }
 }
 
-void ConstDecl() throws YAPLException :
+IAttrib ConstDecl() throws YAPLException :
 {
     Token tIdent;
+    IAttrib attr;
 }
 {
     <CONST> tIdent=<IDENT> 
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Constant);
-            symbolTable.addSymbol(s);
+            symbolTable.addSymbol(s);               
         }
-    <CONST_ASSIGN> Literal() <SEMICOLON>
+    <CONST_ASSIGN> attr=Literal() <SEMICOLON>
+    {
+        s.setType(attr.getType());
+        return attr;
+    }
 }
 
 void VarDecl() throws YAPLException :
+{}
+{
+    VarDecl(null)
+}
+
+void VarDecl(ISymbol recordSymbol) throws YAPLException :
 {
     Token tIdent;
+    Type type;
 }
 {
-    Type() tIdent=<IDENT> 
+    type = Type() tIdent=<IDENT> 
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Variable);
+            s.setType(type);
             symbolTable.addSymbol(s);
+            if (recordSymbol != null)
+                ((RecordType)recordSymbol.getType()).addMember(s);
         } 
     ( <COMMA> tIdent=<IDENT>
         {
             s = new Symbol(tIdent, ISymbol.Variable);
+            s.setType(type);
             symbolTable.addSymbol(s);
+            if (recordSymbol != null)
+                ((RecordType)recordSymbol.getType()).addMember(s);
         }
     )* <SEMICOLON>
 }
@@ -512,10 +750,12 @@ void TypeDecl() throws YAPLException :
     <RECORD> tIdent=<IDENT>
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Typename);
+            RecordType rt = new RecordType();
+            s.setType(rt);
             symbolTable.addSymbol(s);
             symbolTable.openScope(false);
         }
-    (VarDecl() )+ 
+    (VarDecl(s) )+ 
         {
             symbolTable.closeScope();
         }
@@ -528,7 +768,7 @@ void Decl() throws YAPLException :
     <DECLARE> ( ConstDecl() | VarDecl() | TypeDecl() )*
 }
 
-void FormalParam() throws YAPLException :
+ISymbol FormalParam() throws YAPLException :
 {
     Token tIdent;
     boolean readonly = false;
@@ -543,54 +783,76 @@ void FormalParam() throws YAPLException :
         {
             if (readonly && !(type instanceof ArrayType || type instanceof RecordType))
                 throw new YAPLException(CompilerError.ReadonlyNotArray);
-            type.setReadonly(readonly);
         }
      tIdent=<IDENT>
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Parameter);
             s.setType(type);
+            s.setReadonly(readonly);
             symbolTable.addSymbol(s);
-            //TODO: set nex param ?? parent symbol ??
+            return s;
         }
 }
 
-void FormalParamList() throws YAPLException :
-{}
+void FormalParamList(ProcedureSymbol proc) throws YAPLException :
 {
-    FormalParam() ( <COMMA> FormalParam() )*
+    ISymbol param;
+}
+{
+    param = FormalParam()
+    {
+        proc.addParameter(param);
+    }
+    (
+        <COMMA> param = FormalParam()
+        {
+            proc.addParameter(param);
+        }
+    )*
 }
 
 void Procedure() throws YAPLException :
 {
     Token tStartIdent;
     Token tEndIdent;
+    Type retType;
+    ProcedureSymbol s;
 }
 {
-    <PROCEDURE> ReturnType() tStartIdent=<IDENT>
+    <PROCEDURE> retType = ReturnType() tStartIdent=<IDENT>
         {
-            ISymbol s = new Symbol(tStartIdent, ISymbol.Procedure);
+            s = new ProcedureSymbol(tStartIdent);
+            s.setType(retType);
             symbolTable.addSymbol(s);
             symbolTable.openScope(false);
+            symbolTable.addParentSymbol(s);
         }
-    <OPEN_PARENTH> [ FormalParamList() ] <CLOSE_PARENTH> Block() tEndIdent=<IDENT>
+    <OPEN_PARENTH> [ FormalParamList(s) ] <CLOSE_PARENTH> Block() tEndIdent=<IDENT>
         {
             if (!tEndIdent.image.equals(tStartIdent.image)) throw new ProcedureNameMismatchException(tStartIdent, tEndIdent);
             symbolTable.closeScope();            
         }
     <SEMICOLON>
+
+    {
+        if (!(s.getType() instanceof VoidType) && !s.getReturnSeen())
+            throw new YAPLException(CompilerError.MissingReturn);
+    }
 }
 
 void Program() throws YAPLException :
 {
     Token tEndIdent;    
+    ISymbol symProgram;
 }
 {
     <PROGRAM> tProgramName=<IDENT>
         {
-            symbolTable.openScope(false);
-            ISymbol s = new Symbol(tProgramName, ISymbol.Program);
-            symbolTable.openScope(true);
-            
+            symbolTable.openScope(false);            
+            symProgram = new Symbol(tProgramName, ISymbol.Program);
+            symbolTable.setParentSymbol(symProgram);
+            s.setType(new VoidType());
+            symbolTable.openScope(true);            
         }
     ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>
         {            
