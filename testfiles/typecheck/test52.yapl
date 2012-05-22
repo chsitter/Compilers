@@ -1,0 +1,18 @@
+/* Type check test input.
+ * <expected result> ERROR 40 (line 17, column 19)
+ * invalid field medin of record Stat
+ * $Id: test52.yapl 247 2012-05-07 14:25:35Z mt $
+ */
+Program test52
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+    Stat stat;
+Begin
+    stat.count := 100;
+    writeint(stat.count);
+    writeint(stat.medin);
+End test52.

@@ -1,0 +1,17 @@
+/* Type check test input.
+ * <expected result> ERROR 29 (line 13, column 7)
+ * type mismatch in assignment
+ * $Id: test16.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test16
+
+Procedure void proc(int k, int n)
+Declare
+    bool b;
+Begin
+    n := -13 + k;
+    b := n * 5;
+End proc;
+
+Begin
+End test16.

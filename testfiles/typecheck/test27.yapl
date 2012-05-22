@@ -1,0 +1,15 @@
+/* Type check test input.
+ * <expected result> ERROR 30 (line 11, column 24)
+ * argument #1 not applicable to procedure proc
+ * $Id: test27.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test27
+
+Procedure int proc(int k)
+Begin
+   If k < 3 Then Return k;
+   Return k * proc(k > 10);
+End proc;
+
+Begin
+End test27.

@@ -1,0 +1,19 @@
+/* Type check test input.
+ * <expected result> ERROR 39 (line 18, column 15)
+ * expression before . is not a record type
+ * $Id: test51.yapl 247 2012-05-07 14:25:35Z mt $
+ */
+Program test51
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+    Stat stat;
+    int[] a;
+Begin
+    stat.count := 100;
+    writeint(stat.count);
+    writeint(a.median);
+End test51.

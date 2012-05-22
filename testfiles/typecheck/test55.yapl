@@ -1,0 +1,30 @@
+/* Type check test input.
+ * <expected result> ERROR 29 (line 29, column 11)
+ * type mismatch in assignment
+ * $Id: test55.yapl 247 2012-05-07 14:25:35Z mt $
+ */
+Program test55
+Declare
+    Record Stat1
+        int count;
+        int median;
+    EndRecord;
+    Record Stat2
+        int count;
+        int median;
+    EndRecord;
+    Record Stat3
+        int count;
+        int min;
+        int max;
+    EndRecord;
+
+    Stat1 stat1;
+    Stat2 stat2;
+    Stat3 stat3;
+Begin
+    stat1.count := 100;
+    stat1.median := 0;
+    stat2 := stat1;    /* valid */
+    stat3 := stat1;    /* invalid */
+End test55.

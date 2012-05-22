@@ -1,0 +1,19 @@
+/* Type check test input.
+ * <expected result> ERROR 31 (line 15, column 37)
+ * read-only argument #3 passed to read-write procedure normalize
+ * $Id: test50.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test50
+
+Procedure void normalize(int n1, int n2, int[] m)
+Begin
+End normalize;
+
+Procedure void proc(int[][] m1, readonly int[][] m2)
+Begin
+    normalize(#m2[0], m2[0][0], m1[0]);
+    normalize(#m2[1], m2[1][0], m2[1]);
+End proc;
+
+Begin
+End test50.

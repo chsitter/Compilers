@@ -1,0 +1,17 @@
+/* Type check test input.
+ * <expected result> ERROR 29 (line 13, column 9)
+ * type mismatch in assignment
+ * $Id: test17.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test17
+
+Procedure void proc(int k, int n, int[] arr)
+Declare
+    int m;
+Begin
+    arr[n] := 17 * k + m;
+    arr := 4;
+End proc;
+
+Begin
+End test17.

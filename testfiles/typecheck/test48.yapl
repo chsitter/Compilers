@@ -1,0 +1,13 @@
+/* Type check test input.
+ * <expected result> ERROR 34 (line 8, column 42)
+ * type qualified as readonly is not a reference type
+ * $Id: test48.yapl 247 2012-05-07 14:25:35Z mt $
+ */
+Program test48
+
+Procedure void proc(bool b, readonly int n)
+Begin
+End proc;
+
+Begin
+End test48.

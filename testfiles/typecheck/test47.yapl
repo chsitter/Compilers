@@ -1,0 +1,15 @@
+/* Type check test input.
+ * <expected result> ERROR 28 (line 11, column 5)
+ * read-only l-value in assignment
+ * $Id: test47.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test47
+
+Procedure void proc(int[] a, readonly int[] r)
+Begin
+    a[r[0]] := 1;
+    r[a[1]] := 0;
+End proc;
+
+Begin
+End test47.

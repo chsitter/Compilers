@@ -1,0 +1,14 @@
+/* Type check test input.
+ * <expected result> ERROR 32 (line 13, column 12)
+ * too few arguments for procedure proc
+ * $Id: test21.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test21
+
+Procedure void proc(int k, int m)
+Begin
+End proc;
+
+Begin
+    proc(10);
+End test21.

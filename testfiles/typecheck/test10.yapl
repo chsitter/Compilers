@@ -1,0 +1,13 @@
+/* Type check test input.
+ * <expected result> ERROR 22 (line 12, column 10)
+ * expression after '#' is not an array type
+ * $Id: test10.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test10
+Declare
+    int k, m;
+    int[] a;
+Begin
+    m := #a;
+    k := #m;
+End test10.

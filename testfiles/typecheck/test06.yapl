@@ -1,0 +1,17 @@
+/* Type check test input.
+ * <expected result> ERROR 27 (line 16, column 10)
+ * using procedure proc (not a function) in expression
+ * $Id: test06.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test06
+
+Procedure void proc(int k)
+Begin
+End proc;
+
+Declare
+    int k;
+Begin
+    proc(1);
+    k := proc(5);
+End test06.

@@ -1,0 +1,24 @@
+/* Type check test input.
+ * <expected result> ERROR 31 (line 20, column 14)
+ * read-only argument #2 passed to read-write procedure proc1
+ * $Id: test57.yapl 248 2012-05-07 19:59:41Z mt $
+ */
+Program test57
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+Procedure void proc1(int c, Stat statistics)
+Begin
+    statistics.count := c * 2;
+End proc1;
+
+Procedure void proc2(readonly Stat stat, int c)
+Begin
+    proc1(c, stat);
+End proc2;
+
+Begin
+End test57.

@@ -1,0 +1,14 @@
+/* Type check test input.
+ * <expected result> ERROR 36 (line 10, column 4)
+ * returning none or invalid type from function proc
+ * $Id: test32.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test32
+
+Procedure int proc()
+Begin
+   Return;
+End proc;
+
+Begin
+End test32.

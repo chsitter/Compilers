@@ -1,0 +1,13 @@
+/* Type check test input.
+ * <expected result> ERROR 33 (line 10, column 12)
+ * condition is not a boolean expression
+ * $Id: test28.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test28
+Declare
+    int k;
+Begin
+    If k - 3 Then 
+        writeint(k);
+    EndIf;
+End test28.

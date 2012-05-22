@@ -1,0 +1,16 @@
+/* Type check test input.
+ * <expected result> ERROR 30 (line 15, column 17)
+ * argument #2 not applicable to procedure proc
+ * $Id: test23.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test23
+
+Procedure void proc(int k, int m)
+Begin
+End proc;
+
+Declare
+    Const n = 21;
+Begin
+    proc(n * 4, True);
+End test23.

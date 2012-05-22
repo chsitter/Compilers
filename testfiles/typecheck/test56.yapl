@@ -1,0 +1,22 @@
+/* Type check test input.
+ * <expected result> ERROR 28 (line 18, column 5)
+ * read-only l-value in assignment
+ * $Id: test56.yapl 248 2012-05-07 19:59:41Z mt $
+ */
+Program test56
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+Procedure void proc(readonly Stat statistics)
+Declare
+    int c;
+Begin
+    c := statistics.count + 1;
+    statistics.median := c / 2;
+End proc;
+
+Begin
+End test56.

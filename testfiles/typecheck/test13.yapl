@@ -1,0 +1,14 @@
+/* Type check test input.
+ * <expected result> ERROR 29 (line 13, column 17)
+ * type mismatch in assignment
+ * $Id: test13.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test13
+Declare
+    int[] arr;
+    int a, b;
+Begin
+    arr := new int[10];
+    arr[a % 10] := 3 * b + 7;
+    arr[#arr-1] := (arr[0] != 0);
+End test13.

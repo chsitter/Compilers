@@ -1,0 +1,13 @@
+/* Type check test input.
+ * <expected result> ERROR 20 (line 12, column 16)
+ * expression before '[' is not an array type
+ * (referring to the second '[' in that line)
+ * $Id: test45.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test45
+Declare
+    int n;
+    int[] arr;
+Begin
+    n := arr[1][2];
+End test45.

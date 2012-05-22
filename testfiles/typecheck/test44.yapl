@@ -1,0 +1,22 @@
+/* Type check test input.
+ * <expected result> ERROR 30 (line 21, column 17)
+ * argument #2 not applicable to procedure add
+ * $Id: test44.yapl 162 2011-03-21 11:20:58Z mt $
+ */
+Program test44
+
+Procedure int[][] add(readonly int[][] m1, readonly int[][] m2)
+Declare
+    int[][] m;
+Begin
+    m := new int[#m1][#m1[0]];
+    m[0][0] := m1[0][0] + m2[0][0];
+    Return m;
+End add;
+
+Declare
+    int[] a;
+    int[][] m;
+Begin
+    m := add(m, a); 
+End test44.
