@@ -6,16 +6,21 @@ import ca4.yapl.exceptions.IllegalUseException;
 import ca4.yapl.exceptions.ProcedureNameMismatchException;
 import ca4.yapl.exceptions.ProgramNameMismatchException;
 import ca4.yapl.exceptions.YAPLException;
+import ca4.yapl.impl.Attrib;
+import ca4.yapl.impl.ProcedureSymbol;
 import ca4.yapl.impl.Symbol;
 import ca4.yapl.impl.SymbolTable;
+import ca4.yapl.interfaces.CompilerError;
+import ca4.yapl.interfaces.IAttrib;
 import ca4.yapl.interfaces.ISymbol;
-import ca4.yapl.lib.CompilerMessage;
+import ca4.yapl.lib.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 
 public class Parser {
     private static SymbolTable symbolTable = new SymbolTable();
     private static Token tProgramName = null;
+    private static boolean displayInfo = false;    // set to true for extra compiler information
 
     public static void main(String args[]) {
         try {
@@ -276,7 +281,7 @@ IAttrib ArrayLen() throws YAPLException :
             
             arrayAttr = new Attrib(s);
         }
-    [ arrayAttr = Selector() ]
+    [ arrayAttr = Selector(arrayAttr) ]
     {
         if (!(arrayAttr.getType() instanceof ArrayType))
             throw new YAPLException(CompilerError.ArrayLenNotArray);
@@ -370,11 +375,15 @@ IAttrib RelExpr() throws YAPLException :
     IAttrib lvalue, rvalue;
 }
 {
-    lvalue = AddExpr() [ RelOp() rvalue = AddExpr() ]
+    lvalue = AddExpr()
+    [
+        RelOp() rvalue = AddExpr()
+        {
+            if (!(lvalue instanceof IntType && rvalue instanceof IntType))
+                throw new YAPLException(CompilerError.IllegalOp2Type);
+        }
+    ]
     {
-        if (!(lvalue instanceof IntType && rvalue instanceof IntType))
-            throw new YAPLException(CompilerError.IllegalOp2Type);
-        
         return new Attrib(new BoolType(), true);
     }
 }
@@ -384,12 +393,17 @@ IAttrib EqualExpr() throws YAPLException :
     IAttrib lvalue, rvalue;
 }
 {
-    lvalue = RelExpr() [ EqualOp() rvalue = RelExpr() ]
+    lvalue = RelExpr()
+    [
+        EqualOp() rvalue = RelExpr()
+        {
+            if (!lvalue.getType().isCompatible(rvalue.getType()))
+                throw new YAPLException(CompilerError.IllegalEqualOpType);
+            if (!(lvalue instanceof IntType || rvalue instanceof IntType || lvalue instanceof BoolType || rvalue instanceof BoolType))
+                throw new YAPLException(CompilerError.IllegalEqualOpType);
+        }
+    ]
     {
-        if (!lvalue.isCompatible(rvalue))
-            throw new YAPLException(CompilerError.IllegalEqualOpType);
-        if (!(lvalue instanceof IntType || rvalue instanceof IntType || lvalue instanceof BoolType || rvalue instanceof BoolType))
-            throw new YAPLException(CompilerError.IllegalEqualOpType);
         return new Attrib(new BoolType(), true);
     }
 }
@@ -474,7 +488,7 @@ IAttrib Expr() throws YAPLException :
 int ArgumentList(ProcedureSymbol s) throws YAPLException :
 {
     int i = 0;
-    int paramCount = s.getParamtersCount();
+    int paramCount = s.getParametersCount();
     IAttrib arg;
     ISymbol param;
 }
@@ -482,7 +496,7 @@ int ArgumentList(ProcedureSymbol s) throws YAPLException :
     arg = Expr()
     {
         param = s.getParameter(i);
-        if (i >= paramCount - 1 || !arg.getType().isCompatible(param))
+        if (i >= paramCount - 1 || !arg.getType().isCompatible(param.getType()))
             throw new YAPLException(CompilerError.ArgNotApplicable);
         if (arg.isConstant() && !(param.getType() instanceof IntType) && !(param.getType() instanceof BoolType) && !param.isReadonly())
             throw new YAPLException(CompilerError.ReadonlyArg);
@@ -492,16 +506,17 @@ int ArgumentList(ProcedureSymbol s) throws YAPLException :
         <COMMA> arg = Expr()
         {
             param = s.getParameter(i);
-            if (i >= paramCount - 1 || !arg.getType().isCompatible(param))
+            if (i >= paramCount - 1 || !arg.getType().isCompatible(param.getType()))
                 throw new YAPLException(CompilerError.ArgNotApplicable);
             i++;
         }
     )*
+    {
+        if (i < paramCount)
+            throw new YAPLException(CompilerError.TooFewArgs);
 
-    if (i < paramCount)
-        throw new YAPLException(CompilerError.TooFewArgs);
-
-    return i;
+        return i;
+    }
 }
 
 IAttrib ProcedureCall() throws YAPLException :
@@ -514,13 +529,13 @@ IAttrib ProcedureCall() throws YAPLException :
     tIdent=<IDENT> 
         {
             ISymbol s = symbolTable.lookup(tIdent);
-            if (!(s.getKind() instanceof ProcedureSymbol))
+            if (!(s instanceof ProcedureSymbol))
                 throw new IllegalUseException(s, tIdent);
             resultAttr = new Attrib(s);
         }
     <OPEN_PARENTH> [ argCount = ArgumentList((ProcedureSymbol)s) ] <CLOSE_PARENTH>
     {
-        if (argCount == -1 && s.getParametersCount() > 0)
+        if (argCount == -1 && ((ProcedureSymbol)s).getParametersCount() > 0)
             throw new YAPLException(CompilerError.TooFewArgs);
         return resultAttr;
     }
@@ -529,7 +544,7 @@ IAttrib ProcedureCall() throws YAPLException :
 void Assignment() throws YAPLException :
 {
     Token tIdent;
-    IAttrib lvalue;
+    IAttrib lvalue, rvalue;
 }
 {
     tIdent=<IDENT> 
@@ -539,12 +554,15 @@ void Assignment() throws YAPLException :
                 throw new IllegalUseException(s, tIdent);
             lvalue = new Attrib(s);
         }
-    [ lvalue = Selector(lvalue) ] <ASSIGN> Expr()
+    [ lvalue = Selector(lvalue) ] <ASSIGN> rvalue = Expr()
     {
         if (lvalue.isConstant())
             throw new YAPLException(CompilerError.ReadonlyAssign);
-        if (!lvalue.isCompatible(rvalue))
+        if (!lvalue.getType().isCompatible(rvalue.getType()))
             throw new YAPLException(CompilerError.TypeMismatchAssign);
+
+        if (rvalue.isConstant() && (rvalue.getType() instanceof ArrayType || rvalue.getType() instanceof RecordType))
+            lvalue.setConstant(true);
     }
 }
 
@@ -576,16 +594,16 @@ void WhileStatement() throws YAPLException :
 
 void ReturnStatement() throws YAPLException :
 {
-    IAttrib retAttr = new Attrib(new VoidType, true);
+    IAttrib retAttr = new Attrib(new VoidType(), true);
 }
 {
     <RETURN> [ retAttr = Expr() ]
     {
-        ISymbol s = SymbolTable.getNearestParentSymbol(ISymbol.Procedure);
+        ISymbol s = symbolTable.getNearestParentSymbol(ISymbol.Procedure);
         if (s == null)
-            s = SymbolTable.getNearestParentSymbol(ISymbol.Program);
+            s = symbolTable.getNearestParentSymbol(ISymbol.Program);
         s.setReturnSeen(true);
-        if(!s.getType().isCompatible(retAttr))
+        if(!s.getType().isCompatible(retAttr.getType()))
             throw new YAPLException(CompilerError.InvalidReturnType);
     }
 }
@@ -643,25 +661,7 @@ Type StaticType() throws YAPLException :
         }
 }
 
-/* Type = PrimType [ "[" "]" ] . */
-Type Type() :
-{
-	{info("Found: Type");}
-    Type t;
-}
-{
-    t = PrimType()
-    [
-      <BRACKET_LEFT> <BRACKET_RIGHT>		{info("Found: <BRACKET_LEFT> <BRACKET_RIGHT>");}
-      {
-        t = new ArrayType(t);
-      }
-    ]
-	{
-	  return t;
-	}
-}
-
+/* Type = StaticType [ "[" "]" ] . */
 Type Type() throws YAPLException :
 {
     info("Found: Type");
@@ -671,7 +671,7 @@ Type Type() throws YAPLException :
     t = StaticType()
     ( 
         <SQUARE_BRACKET_OPEN><SQUARE_BRACKET_CLOSE>
-        t = new ArrayType(t);
+        { t = new ArrayType(t); }
     )*
 
     {
@@ -709,12 +709,6 @@ IAttrib ConstDecl() throws YAPLException :
         s.setType(attr.getType());
         return attr;
     }
-}
-
-void VarDecl() throws YAPLException :
-{}
-{
-    VarDecl(null)
 }
 
 void VarDecl(ISymbol recordSymbol) throws YAPLException :
@@ -765,7 +759,7 @@ void TypeDecl() throws YAPLException :
 void Decl() throws YAPLException :
 {}
 {
-    <DECLARE> ( ConstDecl() | VarDecl() | TypeDecl() )*
+    <DECLARE> ( ConstDecl() | VarDecl(null) | TypeDecl() )*
 }
 
 ISymbol FormalParam() throws YAPLException :
@@ -825,7 +819,7 @@ void Procedure() throws YAPLException :
             s.setType(retType);
             symbolTable.addSymbol(s);
             symbolTable.openScope(false);
-            symbolTable.addParentSymbol(s);
+            symbolTable.setParentSymbol(s);
         }
     <OPEN_PARENTH> [ FormalParamList(s) ] <CLOSE_PARENTH> Block() tEndIdent=<IDENT>
         {
@@ -851,7 +845,8 @@ void Program() throws YAPLException :
             symbolTable.openScope(false);            
             symProgram = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.setParentSymbol(symProgram);
-            s.setType(new VoidType());
+            symProgram.setType(new VoidType());
+            symbolTable.addSymbol(symProgram);
             symbolTable.openScope(true);            
         }
     ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>

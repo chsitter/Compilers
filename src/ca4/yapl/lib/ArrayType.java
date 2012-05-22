@@ -27,6 +27,10 @@ public class ArrayType extends Type {
         return dim;
     }
 
+    public void setDim(int dim) {
+        this.dim = dim;
+    }
+
     public Type getElem() {
         return elem;
     }

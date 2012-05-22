@@ -9,10 +9,8 @@ import java.util.ArrayList;
  */
 public class RecordType extends Type {
     private ArrayList<ISymbol> members = new ArrayList<ISymbol>();
-    private boolean readonly;
     
-    public RecordType(boolean readonly) {
-        this.readonly = readonly;
+    public RecordType() {
     }            
     
     public void addMember(ISymbol member) {

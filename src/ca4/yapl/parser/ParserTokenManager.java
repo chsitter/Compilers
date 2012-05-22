@@ -4,10 +4,14 @@ import ca4.yapl.exceptions.IllegalUseException;
 import ca4.yapl.exceptions.ProcedureNameMismatchException;
 import ca4.yapl.exceptions.ProgramNameMismatchException;
 import ca4.yapl.exceptions.YAPLException;
+import ca4.yapl.impl.Attrib;
+import ca4.yapl.impl.ProcedureSymbol;
 import ca4.yapl.impl.Symbol;
 import ca4.yapl.impl.SymbolTable;
+import ca4.yapl.interfaces.CompilerError;
+import ca4.yapl.interfaces.IAttrib;
 import ca4.yapl.interfaces.ISymbol;
-import ca4.yapl.lib.CompilerMessage;
+import ca4.yapl.lib.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 

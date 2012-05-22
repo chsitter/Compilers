@@ -119,5 +119,4 @@ public interface IAttrib {
 	 * Return the index operand for an {@link #ArrayElement}.
 	 */
 	public IAttrib getIndex();
-	
 }
