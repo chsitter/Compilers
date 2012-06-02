@@ -1,7 +1,7 @@
-package ca4.yapl.lib;
+package yapl.lib;
 
-import ca4.yapl.exceptions.YAPLException;
-import ca4.yapl.interfaces.CompilerError;
+import yapl.exceptions.YAPLException;
+import yapl.interfaces.CompilerError;
 
 /**
  *

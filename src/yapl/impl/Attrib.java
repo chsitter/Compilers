@@ -1,9 +1,9 @@
-package ca4.yapl.impl;
+package yapl.impl;
 
-import ca4.yapl.interfaces.IAttrib;
-import ca4.yapl.interfaces.ISymbol;
-import ca4.yapl.lib.Type;
-import ca4.yapl.parser.Token;
+import yapl.interfaces.IAttrib;
+import yapl.interfaces.ISymbol;
+import yapl.lib.Type;
+import yapl.parser.Token;
 
 /**
  *

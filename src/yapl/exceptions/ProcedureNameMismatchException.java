@@ -1,6 +1,6 @@
-package ca4.yapl.exceptions;
+package yapl.exceptions;
 
-import ca4.yapl.parser.Token;
+import yapl.parser.Token;
 
 /**
  *

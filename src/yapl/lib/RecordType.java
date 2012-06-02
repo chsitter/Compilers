@@ -1,6 +1,6 @@
-package ca4.yapl.lib;
+package yapl.lib;
 
-import ca4.yapl.interfaces.ISymbol;
+import yapl.interfaces.ISymbol;
 import java.util.ArrayList;
 
 /**

@@ -2,17 +2,17 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package ca4.yapl.impl;
+package yapl.impl;
 
-import ca4.yapl.exceptions.IdentifierNotDeclaredException;
-import ca4.yapl.exceptions.SymbolAlreadyDeclaredException;
-import ca4.yapl.exceptions.YAPLException;
-import ca4.yapl.interfaces.ISymbol;
-import ca4.yapl.interfaces.ISymboltable;
-import ca4.yapl.lib.BoolType;
-import ca4.yapl.lib.IntType;
-import ca4.yapl.lib.VoidType;
-import ca4.yapl.parser.Token;
+import yapl.exceptions.IdentifierNotDeclaredException;
+import yapl.exceptions.SymbolAlreadyDeclaredException;
+import yapl.exceptions.YAPLException;
+import yapl.interfaces.ISymbol;
+import yapl.interfaces.ISymboltable;
+import yapl.lib.BoolType;
+import yapl.lib.IntType;
+import yapl.lib.VoidType;
+import yapl.parser.Token;
 import java.util.ArrayList;
 
 /**

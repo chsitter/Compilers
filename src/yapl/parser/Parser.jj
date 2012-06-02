@@ -1,19 +1,19 @@
 PARSER_BEGIN(Parser)
 
-package ca4.yapl.parser;
+package yapl.parser;
 
-import ca4.yapl.exceptions.IllegalUseException;
-import ca4.yapl.exceptions.ProcedureNameMismatchException;
-import ca4.yapl.exceptions.ProgramNameMismatchException;
-import ca4.yapl.exceptions.YAPLException;
-import ca4.yapl.impl.Attrib;
-import ca4.yapl.impl.ProcedureSymbol;
-import ca4.yapl.impl.Symbol;
-import ca4.yapl.impl.SymbolTable;
-import ca4.yapl.interfaces.CompilerError;
-import ca4.yapl.interfaces.IAttrib;
-import ca4.yapl.interfaces.ISymbol;
-import ca4.yapl.lib.*;
+import yapl.exceptions.IllegalUseException;
+import yapl.exceptions.ProcedureNameMismatchException;
+import yapl.exceptions.ProgramNameMismatchException;
+import yapl.exceptions.YAPLException;
+import yapl.impl.Attrib;
+import yapl.impl.ProcedureSymbol;
+import yapl.impl.Symbol;
+import yapl.impl.SymbolTable;
+import yapl.interfaces.CompilerError;
+import yapl.interfaces.IAttrib;
+import yapl.interfaces.ISymbol;
+import yapl.lib.*;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -21,17 +21,21 @@ public class Parser {
     private static SymbolTable symbolTable = new SymbolTable();
     private static Token tProgramName = null;
     private static boolean displayInfo = false;    // set to true for extra compiler information
+    private static ICodeGen codeGen;
 
     public static void main(String args[]) {
         try {
-            String file;
-            if (args == null || args.length < 1) {
+            String file, outfile;
+            if (args == null || args.length < 2) {
                 file = "testFiles/typecheck/test06.yapl";
+                outfile = "out.asm";
             } else {
                 file = args[0];
+                outfile = args[1];
             }
             
             Parser parser = new Parser(new FileInputStream(file));
+            codeGen = new CodeGen(new PrintWriter(outfile));
             parser.Program();
 
             CompilerMessage.printOK(tProgramName.image);
@@ -531,10 +535,11 @@ IAttrib Expr() throws YAPLException :
     }
 }
 
-int ArgumentList(ProcedureSymbol s) throws YAPLException :
+List<IAttr> ArgumentList(ProcedureSymbol s) throws YAPLException :
 {
     {info("Found: ArgumentList");}
     int i = 0;
+    List<IAttr> arguments = new ArrayList<IAttr>();
     int paramCount = s.getParametersCount();
     IAttrib arg, firstArg;
     ISymbol param;
@@ -551,6 +556,7 @@ int ArgumentList(ProcedureSymbol s) throws YAPLException :
         if (arg.isConstant() && !(param.getType() instanceof IntType) && !(param.getType() instanceof BoolType) && !param.isReadonly())
             throw new YAPLException(CompilerError.ReadonlyArg, arg.getToken());
         i++;
+        arguments.add(arg);
     }
     (
         <COMMA> arg = Expr()
@@ -563,13 +569,14 @@ int ArgumentList(ProcedureSymbol s) throws YAPLException :
             if (arg.isConstant() && !(param.getType() instanceof IntType) && !(param.getType() instanceof BoolType) && !param.isReadonly())
                 throw new YAPLException(CompilerError.ReadonlyArg, arg.getToken());
             i++;
+            arguments.add(arg);
         }
     )*
     {
         if (i < paramCount)
             throw new YAPLException(CompilerError.TooFewArgs, firstArg.getToken());
 
-        return i;
+        return arguments;
     }
 }
 
@@ -578,7 +585,7 @@ IAttrib ProcedureCall() throws YAPLException :
     {info("Found: ProcedureCall");}
     Token tIdent;
     IAttrib resultAttr;
-    int argCount = -1;
+    List<IAttrib> arguments = null;
 }
 {
     tIdent=<IDENT> 
@@ -589,10 +596,13 @@ IAttrib ProcedureCall() throws YAPLException :
             resultAttr = new Attrib(s);
             resultAttr.setToken(tIdent);
         }
-    <OPEN_PARENTH> [ argCount = ArgumentList((ProcedureSymbol)s) ] <CLOSE_PARENTH>
+    <OPEN_PARENTH> [ arguments = ArgumentList((ProcedureSymbol)s) ] <CLOSE_PARENTH>
     {
-        if (argCount == -1 && ((ProcedureSymbol)s).getParametersCount() > 0)
+        if (arguments == null && ((ProcedureSymbol)s).getParametersCount() > 0)
             throw new YAPLException(CompilerError.TooFewArgs, tIdent);
+        
+        codeGen.callProc(tIdent.image, arguments);
+
         return resultAttr;
     }
 }
@@ -921,6 +931,7 @@ void Program() throws YAPLException :
 {
     <PROGRAM> tProgramName=<IDENT>
         {
+            codeGen.enterMain();
             symbolTable.openScope(false);            
             symProgram = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.setParentSymbol(symProgram);
@@ -929,10 +940,11 @@ void Program() throws YAPLException :
             symbolTable.openScope(true);            
         }
     ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>
-        {            
+        {
             if (!tEndIdent.image.equals(tProgramName.image)) throw new ProgramNameMismatchException(tProgramName, tEndIdent);
             symbolTable.closeScope();
-            symbolTable.closeScope();            
+            symbolTable.closeScope();
+            codeGen.exitMain();
         }
     <DOT>
 }

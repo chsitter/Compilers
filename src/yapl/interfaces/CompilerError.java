@@ -1,4 +1,4 @@
-package ca4.yapl.interfaces;
+package yapl.interfaces;
 
 /** Generic YAPL compiler error interface.
  * It defines error numbers and common methods of exception and error types

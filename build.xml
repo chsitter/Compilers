@@ -4,10 +4,13 @@
 
     <property name="javacc" location="C:\Program Files (x86)\Java\javacc-5.0"/>
     <!--<property name="javacc" location="/usr/share/java/javacc-5.0"/>-->
-    <property name="yapl" location="testFiles/test01.yapl"/>
+    <property name="yapl" location="testFiles/typecheck/test50.yapl"/>
     <property name="ca4.test.dir" location="testFiles/typecheck"/>
     <property name="src" location="src"/>
     <property name="build" location="build"/>
+    <property name="outfile" location="out.asm"/>
+    
+    <taskdef resource="net/sf/antcontrib/antcontrib.properties"/>
     
     <target name="init">
         <mkdir dir="${build}"/>

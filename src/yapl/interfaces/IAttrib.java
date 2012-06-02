@@ -1,7 +1,7 @@
-package ca4.yapl.interfaces;
+package yapl.interfaces;
 
-import ca4.yapl.lib.Type;
-import ca4.yapl.parser.Token;
+import yapl.lib.Type;
+import yapl.parser.Token;
 
 /**
  * Attributes of production symbols for type checking and code generation.
