@@ -239,7 +239,7 @@ IAttrib Literal() throws YAPLException :
             { attrib = new Attrib(Attrib.Constant,new IntType(Integer.parseInt(tok.image)) ); }
         )
         {
-            
+            attrib.setKind(IAttrib.Constant);
             attrib.setToken(tok);
             return attrib;
         }
@@ -265,6 +265,7 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
 
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(selector);
+            attr.setKind(IAttrib.ArrayElement);
         }
     | <DOT> tIdent=<IDENT>
         {
@@ -277,6 +278,8 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
             type = sym.getType();
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(tIdent);
+            attr.setKind(IAttrib.Address);
+            //TODO: des setKind prüfen - wird so vmtl nit gehn
         }
     ) [ attr=Selector(attr) ]
     {
@@ -335,12 +338,14 @@ IAttrib PrimaryExpr() throws YAPLException :
                 resultAttr = new Attrib(s);
                 if(s.getKind() == ISymbol.Constant)
                     resultAttr.setKind(IAttrib.Constant);
+                else if (s.getKind() == ISymbol.Variable)
+                    resultAttr.setKind(IAttrib.Address);
                 resultAttr.setToken(tIdent);
             }
         [ resultAttr = Selector(new Attrib(s)) ] | resultAttr = ArrayLen()
     )
     {
-        codeGen.loadReg(resultAttr);
+        //codeGen.loadReg(resultAttr);
         return resultAttr;
     }
 }
@@ -606,7 +611,15 @@ IAttrib ProcedureCall() throws YAPLException :
         if (arguments == null && ((ProcedureSymbol)s).getParametersCount() > 0)
             throw new YAPLException(CompilerError.TooFewArgs, tIdent);
         
+        if(arguments != null)
+            for(IAttrib a : arguments)
+                codeGen.loadReg(a);
+
         codeGen.callProc(tIdent.image, arguments);
+
+        if(arguments != null)
+            for(IAttrib a : arguments)
+                codeGen.freeReg(a);
 
         return resultAttr;
     }
@@ -625,6 +638,7 @@ void Assignment() throws YAPLException :
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
                 throw new IllegalUseException(s, tIdent);
             lvalue = new Attrib(s);
+            lvalue.setKind(IAttrib.Address);
             lvalue.setToken(tIdent);
         }
     [ lvalue = Selector(lvalue) ] <ASSIGN> rvalue = Expr()
@@ -636,6 +650,8 @@ void Assignment() throws YAPLException :
 
         if (rvalue.isConstant() && (rvalue.getType() instanceof ArrayType || rvalue.getType() instanceof RecordType))
             lvalue.setConstant(true);
+
+        codeGen.assign(lvalue, rvalue);
     }
 }
 
@@ -800,12 +816,13 @@ IAttrib ConstDecl() throws YAPLException :
     <CONST> tIdent=<IDENT> 
         {
             ISymbol s = new Symbol(tIdent, ISymbol.Constant);
-            symbolTable.addSymbol(s);               
+            symbolTable.addSymbol(s);                           
         }
     <CONST_ASSIGN> attr=Literal() <SEMICOLON>
     {
         attr.setKind(IAttrib.Constant);
-        s.setType(attr.getType());
+        s.setType(attr.getType());     
+        codeGen.allocVariable(s);   
         return attr;
     }
 }
@@ -824,6 +841,8 @@ void VarDecl(ISymbol recordSymbol) throws YAPLException :
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
+            
+            codeGen.allocVariable(s);
         } 
     ( <COMMA> tIdent=<IDENT>
         {
@@ -832,6 +851,8 @@ void VarDecl(ISymbol recordSymbol) throws YAPLException :
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
+
+            codeGen.allocVariable(s);
         }
     )* <SEMICOLON>
 }

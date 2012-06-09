@@ -101,6 +101,9 @@ public class SymbolTable implements ISymboltable {
         if(curScope.getSymbols().containsKey(s.getName())) 
             throw new SymbolAlreadyDeclaredException(curScope.getSymbols().get(s.getName()), s);
         
+        if(useGlobalScope)
+            s.setGlobal(true);
+        
         curScope.getSymbols().put(s.getName(), s);
     }
 

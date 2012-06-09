@@ -31,13 +31,17 @@ public class Attrib implements IAttrib {
     
     public Attrib(ISymbol symbol) {
         this.type = symbol.getType();
+        this.offset = symbol.getOffset();
+        this.global = symbol.isGlobal();        
         constant = symbol.isReadonly();
     }
 
+    @Override
     public boolean isConstant() {
         return constant;
     }
 
+    @Override
     public void setConstant(boolean constant) {
         this.constant = constant;
     }

@@ -74,7 +74,7 @@ public interface ICodeGen {
 	 *            if <code>sym</code> does not provide sufficient information
 	 *            (data type, scope), etc.
 	 */
-	public void allocVariable(Symbol sym) 
+	public void allocVariable(ISymbol sym) 
 	throws YAPLException;
 
 	/**
