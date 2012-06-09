@@ -14,7 +14,7 @@ public class IntType extends Type {
         this.value = value;
     }
 
-    public int isValue() {
+    public int getValue() {
         return value;
     }
 

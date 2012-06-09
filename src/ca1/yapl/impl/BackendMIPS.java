@@ -145,7 +145,7 @@ public class BackendMIPS implements BackendAsmRM {
 
     @Override
     public void storeArrayDim(int dim, byte lenReg) {
-        //TODO: wegschmeißen
+        //TODO: wegschmeissen
         comment("storeArrayDim: not implemented");
     }
 

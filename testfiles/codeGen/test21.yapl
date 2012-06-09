@@ -1,0 +1,26 @@
+/* CodeGen test input - records.
+ * $Id: test21.yapl 262 2012-05-31 21:30:37Z mt $
+ */
+Program test21
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+    Stat stat;
+Begin
+    Write "--- Start test21 ---";
+    writeln();
+    stat := new Stat;
+    stat.count := 100;
+    stat.median := 47;
+    Write "count = ";
+    writeint(stat.count);
+    writeln();
+    Write "median = ";
+    writeint(stat.median);
+    writeln();
+    Write "--- End test21 ---";
+    writeln();
+End test21.

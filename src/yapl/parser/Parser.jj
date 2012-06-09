@@ -2,20 +2,21 @@ PARSER_BEGIN(Parser)
 
 package yapl.parser;
 
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
 import yapl.exceptions.IllegalUseException;
 import yapl.exceptions.ProcedureNameMismatchException;
 import yapl.exceptions.ProgramNameMismatchException;
 import yapl.exceptions.YAPLException;
-import yapl.impl.Attrib;
-import yapl.impl.ProcedureSymbol;
-import yapl.impl.Symbol;
-import yapl.impl.SymbolTable;
+import yapl.impl.*;
 import yapl.interfaces.CompilerError;
 import yapl.interfaces.IAttrib;
+import yapl.interfaces.ICodeGen;
 import yapl.interfaces.ISymbol;
 import yapl.lib.*;
-import java.io.FileInputStream;
-import java.io.IOException;
 
 public class Parser {
     private static SymbolTable symbolTable = new SymbolTable();
@@ -31,11 +32,11 @@ public class Parser {
                 outfile = "out.asm";
             } else {
                 file = args[0];
-                outfile = args[1];
+                outfile = args[1];                
             }
-            
+            System.out.println("args: " + file + " --  " + outfile);
             Parser parser = new Parser(new FileInputStream(file));
-            codeGen = new CodeGen(new PrintWriter(outfile));
+            codeGen = new CodeGen(new PrintStream(outfile));
             parser.Program();
 
             CompilerMessage.printOK(tProgramName.image);
@@ -238,6 +239,7 @@ IAttrib Literal() throws YAPLException :
             { attrib = new Attrib(Attrib.Constant,new IntType(Integer.parseInt(tok.image)) ); }
         )
         {
+            
             attrib.setToken(tok);
             return attrib;
         }
@@ -331,11 +333,14 @@ IAttrib PrimaryExpr() throws YAPLException :
                 if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Constant && s.getKind() != ISymbol.Parameter)
                     throw new IllegalUseException(s, tIdent);
                 resultAttr = new Attrib(s);
+                if(s.getKind() == ISymbol.Constant)
+                    resultAttr.setKind(IAttrib.Constant);
                 resultAttr.setToken(tIdent);
             }
         [ resultAttr = Selector(new Attrib(s)) ] | resultAttr = ArrayLen()
     )
     {
+        codeGen.loadReg(resultAttr);
         return resultAttr;
     }
 }
@@ -535,11 +540,11 @@ IAttrib Expr() throws YAPLException :
     }
 }
 
-List<IAttr> ArgumentList(ProcedureSymbol s) throws YAPLException :
+List<IAttrib> ArgumentList(ProcedureSymbol s) throws YAPLException :
 {
     {info("Found: ArgumentList");}
     int i = 0;
-    List<IAttr> arguments = new ArrayList<IAttr>();
+    List<IAttrib> arguments = new ArrayList<IAttrib>();
     int paramCount = s.getParametersCount();
     IAttrib arg, firstArg;
     ISymbol param;
@@ -684,14 +689,23 @@ void ReturnStatement() throws YAPLException :
         }
         if(!s.getType().isCompatible(retAttr.getType()))
             throw new YAPLException(CompilerError.InvalidReturnType, retAttr.getToken());
+
+        if(s.getKind() == ISymbol.Procedure) {
+            codeGen.exitProc(s.getName(), retAttr);
+        }
     }
 }
 
 void WriteStatement() throws YAPLException :
 {
-    {info("Found: WriteStatement");}}
+    {info("Found: WriteStatement");}
+    Token tStr;
+}
 {
-    <WRITE> <STRING>
+    <WRITE> tStr=<STRING>
+    {    
+        codeGen.writeString(tStr.image.replace("\"", ""));
+    }
 }
 
 void Statement() throws YAPLException :
@@ -790,6 +804,7 @@ IAttrib ConstDecl() throws YAPLException :
         }
     <CONST_ASSIGN> attr=Literal() <SEMICOLON>
     {
+        attr.setKind(IAttrib.Constant);
         s.setType(attr.getType());
         return attr;
     }

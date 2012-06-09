@@ -57,6 +57,7 @@ public class YAPLException extends Exception implements CompilerError {
     
     private static String createMessage(int errorCode) {
         switch (errorCode) {
+            case CompilerError.Internal: return "internal compiler error";
             case CompilerError.SelectorNotArray: return "expression before '[' is not an array type";
             case CompilerError.SelectorNotRecord: return "expression before '.' is not a record type";
             case CompilerError.BadArraySelector: return " array index or dimension is not an integer type";
@@ -78,7 +79,9 @@ public class YAPLException extends Exception implements CompilerError {
             case CompilerError.InvalidReturnType: return " returning none or invalid type from function <name>";
             case CompilerError.IllegalRetValProc: return " illegal return value in procedure <name> (not a function)";
             case CompilerError.IllegalRetValMain: return " illegal return value in main program";
-            default: throw new IllegalArgumentException("Fehler im Compiler: ungültiger errorCode");
+            case CompilerError.NoMoreRegs: return " no more registers available";
+            case CompilerError.TooManyDims: return " too many array dimensions";
+            default: throw new IllegalArgumentException("Fehler im Compiler: ungueltiger errorCode: " + errorCode);
         }
     }
 

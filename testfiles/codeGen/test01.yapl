@@ -1,0 +1,10 @@
+/* CodeGen test input - predefined procedures and WriteStatement.
+ * $Id: test01.yapl 256 2012-05-22 10:58:38Z mt $
+ */
+Program test01
+Begin
+    Write "--- Start test01 ---";
+    writeln();
+    Write "--- End test01 ---";
+    writeln();
+End test01.

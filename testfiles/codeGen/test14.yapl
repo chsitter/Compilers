@@ -1,0 +1,49 @@
+/* CodeGen test input - procedures with call-by-reference parameters
+ *                      and without Return statements.
+ * $Id: test14.yapl 173 2011-05-23 20:02:12Z mt $
+ */
+Program test14
+    
+Procedure void printArray(readonly int[] a)
+Declare
+    int k, n;
+Begin
+    Write "printArray: ( ";
+    n := #a;
+    k := 0;
+    While k < n Do
+        writeint(a[k]);
+        Write " ";
+        k := k+1;
+    EndWhile;
+    Write ")"; writeln();
+End printArray;
+
+Procedure void initArray(int[] a)
+Declare
+    int k, n;
+Begin
+    Write "initArray: ";
+    n := #a;
+    k := 0;
+    While k < n Do
+        a[k] := n-k;
+        k := k+1;
+    EndWhile;
+    printArray(a);
+End initArray;
+
+Declare
+    Const N = 5;
+    int[] b;
+    int k;
+Begin
+    Write "--- Start test14 ---";
+    writeln();
+    b := new int[N];
+    initArray(b);
+    printArray(b);
+    Write "Expected ( 5 4 3 2 1 )"; writeln();
+    Write "--- End test14 ---";
+    writeln();
+End test14.

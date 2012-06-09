@@ -1,0 +1,45 @@
+/* CodeGen test input - records.
+ * $Id: test23.yapl 263 2012-06-01 06:26:35Z mt $
+ */
+Program test23
+Declare
+    Record List
+        int item;
+        List next;
+    EndRecord;
+
+Procedure void printList(readonly List list)
+Declare
+    List node;
+Begin
+    node := list;
+    While node.item >= 0 Do
+        writeint(node.item);
+        writeln();
+        node := node.next;
+    EndWhile;
+End printList;
+
+Declare
+    List head, previous, current;
+    Const N = 10;
+    int i;
+Begin
+    Write "--- Start test23 ---";
+    writeln();
+    head := new List;
+    head.item := 1;
+    previous := head;
+    i := 2;
+    While i <= N+1 Do
+        current := new List;
+        current.item := i*i;
+        previous.next := current;
+        previous := current;
+        i := i+1;
+	EndWhile;
+	current.item := -1;
+    printList(head);
+    Write "--- End test23 ---";
+    writeln();
+End test23.

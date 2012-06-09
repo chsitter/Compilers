@@ -1,0 +1,16 @@
+/* CodeGen test input - predefined procedures and WriteStatement.
+ * $Id: test02.yapl 256 2012-05-22 10:58:38Z mt $
+ */
+Program test02
+Begin
+    Write "--- Start test02 ---";
+    writeln();
+    Write "5 = ";
+    writeint(5); 
+    writeln();
+    Write "True = ";
+    writebool(True);
+    writeln();
+    Write "--- End test02 ---";
+    writeln();
+End test02.

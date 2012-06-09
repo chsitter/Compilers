@@ -21,8 +21,14 @@ public class BackendMIPS implements IBackendMIPS {
     
     private static final byte REG_STACK_SEPARATOR = -1;
     
-    public final static String PRINT_INT = "printInt";
+    public final static String PRINT_INT = "writeint";
     public final static String PRINT_STR = "printString";
+    public final static String PRINT_LN = "writeln";
+    public final static String PRINT_BOOL = "writebool";
+    
+    public final static String LBL_NEWLINE = "newLine";
+    public final static String LBL_TRUE = "True";
+    public final static String LBL_FALSE = "False";
     
     
     private String currSegType = null;
@@ -32,7 +38,7 @@ public class BackendMIPS implements IBackendMIPS {
     private int curProcNumArgs = -1;
     private int curProcArgsPassed = -1;
     
-    private PrintStream out;
+    private PrintStream out;   
     
     public BackendMIPS(PrintStream out) {
         this.out = out;
@@ -145,7 +151,7 @@ public class BackendMIPS implements IBackendMIPS {
 
     @Override
     public void storeArrayDim(int dim, byte lenReg) {
-        //TODO: wegschmeißen
+        //TODO: wegschmeissen
         comment("storeArrayDim: not implemented");
     }
 
@@ -506,7 +512,9 @@ public class BackendMIPS implements IBackendMIPS {
     private void writePredefProcedures() {
         writePrintString();
         writePrintInt();
-    }
+        writePrintLn();
+        writePrintBool();
+    } 
     
     /**
      * Initializes a segment if the new segment type does not equal the old one
@@ -529,6 +537,18 @@ public class BackendMIPS implements IBackendMIPS {
         out.println("syscall");
         exitProc("exit_" + BackendMIPS.PRINT_STR);
     }
+    
+    private void writePrintLn() {
+        setSegType(SEG_DATA);
+        out.println(LBL_NEWLINE + ": .asciiz  \"\\n\"");
+        
+        setSegType(SEG_TEXT);
+        enterProc(BackendMIPS.PRINT_LN, 1);
+        out.println("la $a0, " + LBL_NEWLINE + " #load newline character");
+        out.println("li $v0, 4      # print_string");
+        out.println("syscall");
+        exitProc("exit_" + BackendMIPS.PRINT_LN);
+    }
 
     /**
      * The integer to be printed out must be passed as the first (and only) Parameter on the Stack
@@ -541,5 +561,30 @@ public class BackendMIPS implements IBackendMIPS {
         out.println("syscall");
         exitProc("exit_" + BackendMIPS.PRINT_INT);
     }
+    
+    private void writePrintBool() {
+        setSegType(SEG_DATA);
+        out.println(LBL_TRUE + ": .asciiz  \"True\"");
+        out.println(LBL_FALSE + ": .asciiz  \"False\"");
+        
+        setSegType(SEG_TEXT);
+        enterProc(BackendMIPS.PRINT_BOOL, 1);
+        out.println("la $a0, " + LBL_TRUE);     //load true into $a0
+                
+        byte reg = allocReg();
+        byte reg1 = allocReg();
+        out.println("lw $" + reg + ", 4($fp)    # load boolean argument");
+        out.println("li $" + reg1 + ", " + TRUE);
+        out.println("beq $" + reg + ", $" + reg1 + ", printBoolSkip");
+        out.println("la $a0, " + LBL_FALSE);
+        emitLabel("printBoolSkip", "skip load 'False' String in case of True");        
+        out.println("li $v0, 4      # print_string");
+        out.println("syscall");
+        
+        freeReg(reg);
+        freeReg(reg1);
+        exitProc("exit_" + BackendMIPS.PRINT_BOOL);
+    }
+    
     
 }

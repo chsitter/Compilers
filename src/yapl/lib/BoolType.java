@@ -14,7 +14,7 @@ public class BoolType extends Type {
         this.value = value;
     }
 
-    public boolean isValue() {
+    public boolean getValue() {
         return value;
     }
 

@@ -1,0 +1,40 @@
+/* CodeGen test input - records.
+ * $Id: test22.yapl 262 2012-05-31 21:30:37Z mt $
+ */
+Program test22
+Declare
+    Record Stat
+        int count;
+        int median;
+    EndRecord;
+
+Procedure Stat createStat(int median)
+Declare
+    Stat s;
+Begin
+    s := new Stat;
+    s.count := 1;
+    s.median := median;
+    Return s;
+End createStat;
+
+Procedure void printStat(readonly Stat statistics)
+Begin
+    Write "count = ";
+    writeint(statistics.count);
+    writeln();
+    Write "median = ";
+    writeint(statistics.median);
+    writeln();
+End printStat;
+
+Declare 
+    Stat stat;
+Begin
+    Write "--- Start test22 ---";
+    writeln();
+    stat := createStat(-1);
+    printStat(stat);
+    Write "--- End test22 ---";
+    writeln();
+End test22.

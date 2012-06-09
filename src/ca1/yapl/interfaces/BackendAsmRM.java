@@ -119,7 +119,7 @@ public interface BackendAsmRM
 	 * calling {@link #allocArray(byte, int)}.
 	 * @param dim      array dimension; starts at 0.
 	 * @param lenReg   register containing the length of the given array dimension.
-     * //TODO: wegschmeißen
+     * //TODO: wegschmeissen
 	 */
 	public void storeArrayDim(int dim, byte lenReg);
 	

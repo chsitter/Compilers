@@ -78,7 +78,7 @@ public class YAPLException extends Exception implements CompilerError {
             case CompilerError.InvalidReturnType: return " returning none or invalid type from function <name>";
             case CompilerError.IllegalRetValProc: return " illegal return value in procedure <name> (not a function)";
             case CompilerError.IllegalRetValMain: return " illegal return value in main program";
-            default: throw new IllegalArgumentException("Fehler im Compiler: ungültiger errorCode");
+            default: throw new IllegalArgumentException("Fehler im Compiler: ungueltiger errorCode");
         }
     }
 

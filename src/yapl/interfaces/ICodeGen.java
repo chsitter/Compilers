@@ -203,6 +203,8 @@ public interface ICodeGen {
 	 */
 	public void exitMain() 
 	throws YAPLException;
+        
+        public void exitProc(String procName, IAttrib retAttr) throws YAPLException;
 
 	/**
 	 * Generate code for writing a string constant to standard output.
