@@ -182,14 +182,32 @@ public class CodeGen implements ICodeGen {
         byte yReg = loadReg(y);
         if (x.getType() instanceof IntType && y.getType() instanceof IntType) {
             switch (op.image) {
-                case "+":
+                case "+":                                    
                     backend.add(xReg, xReg, yReg);
-                    break;
+                    break;                    
                 case "-":
                     backend.sub(xReg, xReg, yReg);
                     break;
                 case "*":
-                    backend.mul(xReg, xReg, yReg);
+                    backend.mul(xReg, xReg, yReg);                    
+                    break;                
+                case "/":
+                    backend.div(xReg, xReg, yReg);
+                    break;
+                case "%":
+                    backend.mod(xReg, xReg, yReg);
+                    break;
+                default:
+                    throw new YAPLException(YAPLException.IllegalOp2Type, op);
+            }
+        } else if (x.getType() instanceof BoolType && y.getType() instanceof BoolType) {
+            switch (op.image) {          
+                case "Or":
+                    backend.add(xReg, xReg, yReg);
+                    backend.isLess(xReg, (byte)0, xReg);
+                    break;                 
+                case "And":
+                    backend.mul(xReg, xReg, yReg);                    
                     break;
                 default:
                     throw new YAPLException(YAPLException.IllegalOp2Type, op);
@@ -215,6 +233,23 @@ public class CodeGen implements ICodeGen {
         switch (op.image) {
             case "<":
                 backend.isLess(xReg, xReg, yReg);
+                break;
+            case ">":
+                backend.isLess(xReg, yReg, xReg);
+                break;
+            case "<=":
+                backend.isLessOrEqual(xReg, xReg, yReg);
+                break;
+            case ">=":
+                backend.isLess(xReg, xReg, yReg);
+                backend.not(xReg, xReg);
+                break;
+            case "==":
+                backend.isEqual(xReg, xReg, yReg);
+                break;
+            case "!=":
+                backend.isEqual(xReg, xReg, yReg);
+                backend.not(xReg, xReg);
                 break;
             default:
                 throw new YAPLException(YAPLException.IllegalRelOpType, op);
@@ -271,21 +306,39 @@ public class CodeGen implements ICodeGen {
 
         byte destReg = backend.allocReg();
         backend.callProc(destReg, procName);
+        
+        if(arguments != null)
+            for(IAttrib a : arguments)
+                freeReg(a);
+        
         return destReg;
     }
 
     @Override
     public void exitProc(String procName, IAttrib retAttr) throws YAPLException {
         backend.returnFromProc("exit_" + procName, retAttr.getRegister());
+        freeReg(retAttr);
     }
 
     @Override
-    public void storeArrayDim(int dim, IAttrib length) throws YAPLException {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public IAttrib allocArray(ArrayType arrayType, IAttrib dim1, IAttrib dim2) throws YAPLException {        
+        IAttrib retAttr = new Attrib(IAttrib.Register, arrayType);
+        retAttr.setConstant(false);
+        retAttr.setRegister(backend.allocReg());
+                
+        backend.allocArray(retAttr.getRegister(), dim1.getRegister(), (dim2 != null ? dim2.getRegister() : backend.zeroReg()));        
+        
+        return retAttr;
+    }
+    
+    @Override
+    public IAttrib allocArray(ArrayType arrayType, IAttrib dim1) throws YAPLException {
+        return allocArray(arrayType, dim1, null);
     }
 
     @Override
-    public IAttrib allocArray(ArrayType arrayType) throws YAPLException {
-        throw new UnsupportedOperationException("Not supported yet.");
+    public void neg(IAttrib attrib) throws YAPLException {
+        loadReg(attrib);
+        backend.neg(attrib.getRegister(), attrib.getRegister());
     }
 }

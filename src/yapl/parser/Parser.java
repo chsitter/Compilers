@@ -59,77 +59,89 @@ public class Parser implements ParserConstants {
                 info(s + " '"+t.image+"'");
     }
 
-  static final public void RelOp() throws ParseException, YAPLException {
+  static final public Token RelOp() throws ParseException, YAPLException {
     {info("Found: RelOp");}
+    Token tOp;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LT:
-      jj_consume_token(LT);
+      tOp = jj_consume_token(LT);
       break;
     case LEQ:
-      jj_consume_token(LEQ);
+      tOp = jj_consume_token(LEQ);
       break;
     case GEQ:
-      jj_consume_token(GEQ);
+      tOp = jj_consume_token(GEQ);
       break;
     case GT:
-      jj_consume_token(GT);
+      tOp = jj_consume_token(GT);
       break;
     default:
       jj_la1[0] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
+        {if (true) return tOp;}
+    throw new Error("Missing return statement in function");
   }
 
-  static final public void EqualOp() throws ParseException, YAPLException {
+  static final public Token EqualOp() throws ParseException, YAPLException {
     {info("Found: EqualOp");}
+    Token tOp;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case EQ:
-      jj_consume_token(EQ);
+      tOp = jj_consume_token(EQ);
       break;
     case NEQ:
-      jj_consume_token(NEQ);
+      tOp = jj_consume_token(NEQ);
       break;
     default:
       jj_la1[1] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
+        {if (true) return tOp;}
+    throw new Error("Missing return statement in function");
   }
 
-  static final public void AddOp() throws ParseException, YAPLException {
+  static final public Token AddOp() throws ParseException, YAPLException {
     {info("Found: AddOp");}
+    Token tok;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case PLUS:
-      jj_consume_token(PLUS);
+      tok = jj_consume_token(PLUS);
       break;
     case MINUS:
-      jj_consume_token(MINUS);
+      tok = jj_consume_token(MINUS);
       break;
     default:
       jj_la1[2] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
+        {if (true) return tok;}
+    throw new Error("Missing return statement in function");
   }
 
-  static final public void MulOp() throws ParseException, YAPLException {
+  static final public Token MulOp() throws ParseException, YAPLException {
     {info("Found: MulOp");}
+    Token tOp;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case MULT:
-      jj_consume_token(MULT);
+      tOp = jj_consume_token(MULT);
       break;
     case DIV:
-      jj_consume_token(DIV);
+      tOp = jj_consume_token(DIV);
       break;
     case MOD:
-      jj_consume_token(MOD);
+      tOp = jj_consume_token(MOD);
       break;
     default:
       jj_la1[3] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
+        {if (true) return tOp;}
+    throw new Error("Missing return statement in function");
   }
 
 /* Literal = "True" | "False" | number . */
@@ -185,6 +197,8 @@ public class Parser implements ParserConstants {
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(selector);
             attr.setKind(IAttrib.ArrayElement);
+            //TODO: maybe a handling des vuam frei kummt brauchn
+            codeGen.freeReg(idx);
       break;
     case DOT:
       jj_consume_token(DOT);
@@ -306,7 +320,7 @@ public class Parser implements ParserConstants {
         }
       }
     }
-        //codeGen.loadReg(resultAttr);
+        codeGen.loadReg(resultAttr);
         {if (true) return resultAttr;}
     throw new Error("Missing return statement in function");
   }
@@ -314,20 +328,25 @@ public class Parser implements ParserConstants {
   static final public IAttrib UnaryExpr() throws ParseException, YAPLException {
     {info("Found: UnaryExpr");}
     IAttrib resultAttr;
+    Token tAddOp = null;
     boolean opSeen = false;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case PLUS:
     case MINUS:
-      AddOp();
-                opSeen = true;
+      tAddOp = AddOp();
+                       opSeen = true;
       break;
     default:
       jj_la1[11] = jj_gen;
       ;
     }
     resultAttr = PrimaryExpr();
-        if (opSeen && !(resultAttr.getType() instanceof IntType))
-            {if (true) throw new YAPLException(CompilerError.IllegalOp1Type, resultAttr.getToken());}
+        if (opSeen) {
+            if(!(resultAttr.getType() instanceof IntType))
+                {if (true) throw new YAPLException(CompilerError.IllegalOp1Type, resultAttr.getToken());}
+            else if (tAddOp.image.equals("-"))
+                codeGen.neg(resultAttr);
+        }
 
         {if (true) return resultAttr;}
     throw new Error("Missing return statement in function");
@@ -336,7 +355,9 @@ public class Parser implements ParserConstants {
   static final public IAttrib MulExpr() throws ParseException, YAPLException {
     {info("Found: MulExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
     lvalue = UnaryExpr();
+        codeGen.loadReg(lvalue);
     label_1:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -349,12 +370,15 @@ public class Parser implements ParserConstants {
         jj_la1[12] = jj_gen;
         break label_1;
       }
-      MulOp();
+      tOp = MulOp();
       rvalue = UnaryExpr();
             if (!(lvalue.getType() instanceof IntType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());}
             if (!(rvalue.getType() instanceof IntType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());}
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);
     }
         {if (true) return lvalue;}
     throw new Error("Missing return statement in function");
@@ -363,7 +387,9 @@ public class Parser implements ParserConstants {
   static final public IAttrib AddExpr() throws ParseException, YAPLException {
     {info("Found: AddExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
     lvalue = MulExpr();
+        codeGen.loadReg(lvalue);
     label_2:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -375,12 +401,15 @@ public class Parser implements ParserConstants {
         jj_la1[13] = jj_gen;
         break label_2;
       }
-      AddOp();
+      tOp = AddOp();
       rvalue = MulExpr();
             if (!(lvalue.getType() instanceof IntType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());}
             if (!(rvalue.getType() instanceof IntType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());}
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);
     }
         {if (true) return lvalue;}
     throw new Error("Missing return statement in function");
@@ -389,69 +418,65 @@ public class Parser implements ParserConstants {
   static final public IAttrib RelExpr() throws ParseException, YAPLException {
     {info("Found: RelExpr");}
     IAttrib lvalue, rvalue = null;
+    Token tOp;
     lvalue = AddExpr();
+        codeGen.loadReg(lvalue);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case LT:
     case LEQ:
     case GT:
     case GEQ:
-      RelOp();
+      tOp = RelOp();
       rvalue = AddExpr();
             if (!(lvalue.getType() instanceof IntType)) { info("lvalue: " + lvalue.getType());
                 {if (true) throw new YAPLException(CompilerError.IllegalRelOpType, lvalue.getToken());} }
             if (!(rvalue.getType() instanceof IntType)) { info("rvalue: " + rvalue.getType());
                 {if (true) throw new YAPLException(CompilerError.IllegalRelOpType, rvalue.getToken());} }
+
+            codeGen.loadReg(rvalue);
+            codeGen.relOp(lvalue, tOp, rvalue);
       break;
     default:
       jj_la1[14] = jj_gen;
       ;
     }
-        if (rvalue == null) {
-            info("return lvalue: " + lvalue.getType());
-            {if (true) return lvalue;}
-        } else {
-            info("return bool");
-            IAttrib resultAttr = new Attrib(new BoolType(), true);
-            resultAttr.setToken(lvalue.getToken());
-            {if (true) return resultAttr;}
-        }
+        {if (true) return lvalue;}
     throw new Error("Missing return statement in function");
   }
 
   static final public IAttrib EqualExpr() throws ParseException, YAPLException {
     {info("Found: EqualExpr");}
     IAttrib lvalue, rvalue = null;
+    Token tOp;
     lvalue = RelExpr();
+        codeGen.loadReg(lvalue);
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case EQ:
     case NEQ:
-      EqualOp();
+      tOp = EqualOp();
       rvalue = RelExpr();
             if (!lvalue.getType().isCompatible(rvalue.getType()))
                 {if (true) throw new YAPLException(CompilerError.IllegalEqualOpType, lvalue.getToken());}
             if (!((lvalue.getType() instanceof IntType && rvalue.getType() instanceof IntType) || (lvalue.getType() instanceof BoolType && rvalue.getType() instanceof BoolType)))
                 {if (true) throw new YAPLException(CompilerError.IllegalEqualOpType, lvalue.getToken());}
+
+            codeGen.loadReg(rvalue);
+            codeGen.relOp(lvalue, tOp, rvalue);
       break;
     default:
       jj_la1[15] = jj_gen;
       ;
     }
-        if (rvalue == null) {
-            info("return lvalue: " + lvalue.getType());
-            {if (true) return lvalue;}
-        } else {
-            info("return bool");
-            IAttrib resultAttr = new Attrib(new BoolType(), true);
-            resultAttr.setToken(lvalue.getToken());
-            {if (true) return resultAttr;}
-        }
+        {if (true) return lvalue;}
     throw new Error("Missing return statement in function");
   }
 
   static final public IAttrib CondAndExpr() throws ParseException, YAPLException {
     {info("Found: CondAndExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
     lvalue = EqualExpr();
+        codeGen.loadReg(lvalue);
     label_3:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -462,12 +487,15 @@ public class Parser implements ParserConstants {
         jj_la1[16] = jj_gen;
         break label_3;
       }
-      jj_consume_token(AND);
+      tOp = jj_consume_token(AND);
       rvalue = EqualExpr();
             if (!(lvalue.getType() instanceof BoolType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());}
             if (!(rvalue.getType() instanceof BoolType))
                 {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());}
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);
     }
         {if (true) return lvalue;}
     throw new Error("Missing return statement in function");
@@ -511,6 +539,7 @@ public class Parser implements ParserConstants {
   static final public IAttrib Expr() throws ParseException, YAPLException {
     {info("Found: Expr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case TRUE:
     case FALSE:
@@ -521,6 +550,7 @@ public class Parser implements ParserConstants {
     case IDENT:
     case NUMBER:
       lvalue = CondAndExpr();
+            codeGen.loadReg(lvalue);
       label_4:
       while (true) {
         switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -531,12 +561,15 @@ public class Parser implements ParserConstants {
           jj_la1[18] = jj_gen;
           break label_4;
         }
-        jj_consume_token(OR);
+        tOp = jj_consume_token(OR);
         rvalue = CondAndExpr();
                 if (!(lvalue.getType() instanceof BoolType)) { info("lvalue not bool in Expr(), is " + lvalue.getType());
                     {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());} }
                 if (!(rvalue.getType() instanceof BoolType)) { info("rvalue not bool in Expr(), is " + lvalue.getType());
                     {if (true) throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());} }
+
+                codeGen.loadReg(rvalue);
+                codeGen.op2(lvalue, tOp, rvalue);
       }
       break;
     case NEW:
@@ -632,13 +665,9 @@ public class Parser implements ParserConstants {
 
         if(arguments != null)
             for(IAttrib a : arguments)
-                codeGen.loadReg(a);
+                codeGen.loadReg(a); //unnecessary
 
         codeGen.callProc(tIdent.image, arguments);
-
-        if(arguments != null)
-            for(IAttrib a : arguments)
-                codeGen.freeReg(a);
 
         {if (true) return resultAttr;}
     throw new Error("Missing return statement in function");
@@ -684,6 +713,9 @@ public class Parser implements ParserConstants {
     attr = Expr();
         if (!(attr.getType() instanceof BoolType))
             {if (true) throw new YAPLException(CompilerError.CondNotBool, attr.getToken());}
+
+        //TODO - replace freeReg by codeGen function
+        codeGen.freeReg(attr);
     jj_consume_token(THEN);
     StatementList();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -705,6 +737,9 @@ public class Parser implements ParserConstants {
     attr = Expr();
         if (!(attr.getType() instanceof BoolType))
             {if (true) throw new YAPLException(CompilerError.CondNotBool, attr.getToken());}
+
+        //TODO - replace freeReg by codeGen function
+        codeGen.freeReg(attr);
     jj_consume_token(DO);
     StatementList();
     jj_consume_token(ENDWHILE);
@@ -909,22 +944,24 @@ public class Parser implements ParserConstants {
     throw new Error("Missing return statement in function");
   }
 
-  static final public IAttrib ConstDecl() throws ParseException, YAPLException {
+  static final public void ConstDecl() throws ParseException, YAPLException {
     {info("Found: ConstDecl");}
     Token tIdent;
-    IAttrib attr;
+    IAttrib rValue, lValue;
     jj_consume_token(CONST);
     tIdent = jj_consume_token(IDENT);
             ISymbol s = new Symbol(tIdent, ISymbol.Constant);
             symbolTable.addSymbol(s);
     jj_consume_token(CONST_ASSIGN);
-    attr = Literal();
+    rValue = Literal();
     jj_consume_token(SEMICOLON);
-        attr.setKind(IAttrib.Constant);
-        s.setType(attr.getType());
+        rValue.setKind(IAttrib.Constant);
+        s.setType(rValue.getType());
         codeGen.allocVariable(s);
-        {if (true) return attr;}
-    throw new Error("Missing return statement in function");
+
+        lValue = new Attrib(s);
+        lValue.setKind(IAttrib.Address);
+        codeGen.assign(lValue, rValue);
   }
 
   static final public void VarDecl(ISymbol recordSymbol) throws ParseException, YAPLException {
@@ -1175,104 +1212,8 @@ public class Parser implements ParserConstants {
     finally { jj_save(1, xla); }
   }
 
-  static private boolean jj_3R_25() {
-    if (jj_3R_26()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_21() {
-    if (jj_scan_token(DOT)) return true;
-    if (jj_scan_token(IDENT)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_13() {
-    if (jj_scan_token(IDENT)) return true;
-    if (jj_scan_token(OPEN_PARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_15() {
-    if (jj_3R_17()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_29() {
-    if (jj_3R_31()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_19() {
     if (jj_3R_23()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_28() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_29()) jj_scanpos = xsp;
-    if (jj_3R_30()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_23() {
-    if (jj_scan_token(NEW)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_33() {
-    if (jj_scan_token(OPEN_PARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_31() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_scan_token(39)) {
-    jj_scanpos = xsp;
-    if (jj_scan_token(40)) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_20() {
-    if (jj_scan_token(SQUARE_BRACKET_OPEN)) return true;
-    if (jj_3R_16()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_14() {
-    if (jj_scan_token(IDENT)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_15()) jj_scanpos = xsp;
-    if (jj_scan_token(ASSIGN)) return true;
-    if (jj_3R_16()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_24() {
-    if (jj_3R_25()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_17() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_20()) {
-    jj_scanpos = xsp;
-    if (jj_3R_21()) return true;
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_26() {
-    if (jj_3R_27()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_18() {
-    if (jj_3R_22()) return true;
     return false;
   }
 
@@ -1286,13 +1227,23 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_16() {
+  static private boolean jj_3R_15() {
+    if (jj_3R_17()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_31() {
     Token xsp;
     xsp = jj_scanpos;
-    if (jj_3R_18()) {
+    if (jj_scan_token(39)) {
     jj_scanpos = xsp;
-    if (jj_3R_19()) return true;
+    if (jj_scan_token(40)) return true;
     }
+    return false;
+  }
+
+  static private boolean jj_3R_25() {
+    if (jj_3R_26()) return true;
     return false;
   }
 
@@ -1311,23 +1262,33 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3_2() {
-    if (jj_3R_14()) return true;
-    return false;
-  }
-
   static private boolean jj_3_1() {
     if (jj_3R_13()) return true;
     return false;
   }
 
-  static private boolean jj_3R_38() {
-    if (jj_scan_token(TRUE)) return true;
+  static private boolean jj_3R_23() {
+    if (jj_scan_token(NEW)) return true;
     return false;
   }
 
-  static private boolean jj_3R_22() {
-    if (jj_3R_24()) return true;
+  static private boolean jj_3R_27() {
+    if (jj_3R_28()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_14() {
+    if (jj_scan_token(IDENT)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_15()) jj_scanpos = xsp;
+    if (jj_scan_token(ASSIGN)) return true;
+    if (jj_3R_16()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_38() {
+    if (jj_scan_token(TRUE)) return true;
     return false;
   }
 
@@ -1349,11 +1310,6 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_27() {
-    if (jj_3R_28()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_30() {
     Token xsp;
     xsp = jj_scanpos;
@@ -1369,6 +1325,87 @@ public class Parser implements ParserConstants {
     }
     }
     }
+    }
+    return false;
+  }
+
+  static private boolean jj_3R_18() {
+    if (jj_3R_22()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_24() {
+    if (jj_3R_25()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_16() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_18()) {
+    jj_scanpos = xsp;
+    if (jj_3R_19()) return true;
+    }
+    return false;
+  }
+
+  static private boolean jj_3_2() {
+    if (jj_3R_14()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_21() {
+    if (jj_scan_token(DOT)) return true;
+    if (jj_scan_token(IDENT)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_29() {
+    if (jj_3R_31()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_26() {
+    if (jj_3R_27()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_28() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_29()) jj_scanpos = xsp;
+    if (jj_3R_30()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_33() {
+    if (jj_scan_token(OPEN_PARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_22() {
+    if (jj_3R_24()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_20() {
+    if (jj_scan_token(SQUARE_BRACKET_OPEN)) return true;
+    if (jj_3R_16()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_13() {
+    if (jj_scan_token(IDENT)) return true;
+    if (jj_scan_token(OPEN_PARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_17() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_20()) {
+    jj_scanpos = xsp;
+    if (jj_3R_21()) return true;
     }
     return false;
   }

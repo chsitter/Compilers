@@ -150,28 +150,18 @@ public class BackendMIPS implements IBackendMIPS {
     }
 
     @Override
-    public void storeArrayDim(int dim, byte lenReg) {
-        //TODO: wegschmeissen
-        comment("storeArrayDim: not implemented");
-    }
-
-    @Override
-    public void allocArray(byte destReg, int lenDim1, int lenDim2) {
+    public void allocArray(byte destReg, byte regDim1, byte regDim2) {
         setSegType(SEG_TEXT);
-        out.println("li $a0, " + lenDim1);
-        out.println("mul   $a0, $a0, " + lenDim2);
+        out.println("move $a0, $" + regDim1);
+        out.println("mul   $a0, $a0, $" + regDim2);
         out.print("addi   $a0, $a0, 2");
         comment("$a0 = n * m + 2");
         out.println("li $v0, 9");
         comment("sbrk");
         out.println("syscall");
-        byte tmp = allocReg();
-        out.println("li $" + tmp + ", " + lenDim1);
-        storeWordReg(tmp, (byte) 2 /* v0 */);
-        out.println("li $" + tmp + ", " + lenDim2);
-        storeWordReg(tmp, (byte) 2 /* v0 */, wordSize());
+        storeWordReg(regDim1, (byte) 2 /* v0 */);
+        storeWordReg(regDim2, (byte) 2 /* v0 */, wordSize());
         out.print("move   $" + destReg + ", $v0");
-        freeReg(tmp);
         comment("move start address of array to destReg");
     }
 
@@ -202,8 +192,10 @@ public class BackendMIPS implements IBackendMIPS {
     @Override
     public void storeWord(byte reg, int addr, boolean isStatic) {
         setSegType(SEG_TEXT);
-        loadAddress(reg, addr, isStatic);
-        storeWordReg(reg, reg);
+        byte tmp = allocReg();
+        loadAddress(tmp, addr, isStatic);
+        storeWordReg(reg, tmp);
+        freeReg(tmp);
     }
 
     @Override
@@ -361,7 +353,11 @@ public class BackendMIPS implements IBackendMIPS {
     @Override
     public void not(byte regDest, byte regSrc) {
         setSegType(SEG_TEXT);
-        out.println("not    $" + regDest + ", $" + regSrc);
+        byte tmp = allocReg();
+        loadConst(tmp, TRUE);
+        sub(regDest, tmp, regSrc);
+        comment("logical not");
+        freeReg(tmp);
     }
 
     @Override

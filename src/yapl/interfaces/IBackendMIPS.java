@@ -112,16 +112,6 @@ public interface IBackendMIPS
     public int allocStack(int bytes, String comment);
     
     /*--- run-time memory allocation ---*/
-    
-	/**
-	 * Store array dimension length.
-	 * Needs to be called with increasing values of <code>dim</code>, before
-	 * calling {@link #allocArray(byte, int)}.
-	 * @param dim      array dimension; starts at 0.
-	 * @param lenReg   register containing the length of the given array dimension.
-     * //TODO: wegschmeissen
-	 */
-	public void storeArrayDim(int dim, byte lenReg);
 	
 	/**
 	 * Allocate (one- or multi-dimensional) array at run time.
@@ -129,7 +119,7 @@ public interface IBackendMIPS
 	 * {@link #storeArrayDim(int, byte)} must have been called before.
 	 * @param destReg   register where to store the array start address.
 	 */
-	public void allocArray(byte destReg, int lenDim1, int lenDim2);
+	public void allocArray(byte destReg, byte regDim1, byte regDim2);
 	
     /*--- load/store operations ---*/
     

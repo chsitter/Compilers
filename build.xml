@@ -4,7 +4,7 @@
 
     <!--<property name="javacc" location="C:\Program Files (x86)\Java\javacc-5.0"/>-->
     <property name="javacc" location="/usr/share/java/javacc-5.0"/>
-    <property name="yapl" location="testFiles/codeGen/test04.yapl"/>
+    <property name="yapl" location="testFiles/codeGen/test06.yapl"/>
     <property name="ca4.test.dir" location="testFiles/typeCheck"/>
     <property name="ca5.test.dir" location="testFiles/codeGen"/>
     <property name="mars" location="./Mars_4_2.jar"/>

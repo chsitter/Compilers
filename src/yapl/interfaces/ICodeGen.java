@@ -76,19 +76,6 @@ public interface ICodeGen {
 	 */
 	public void allocVariable(ISymbol sym) 
 	throws YAPLException;
-
-	/**
-	 * Store length of given array dimension at run time.
-	 * The stored array dimensions are needed for run-time allocation of
-	 * the array, see {@link #allocArray(Type)}.
-	 * @param dim       dimension number; starts at 0.
-	 * @param length    operand representing the dimension length.
-	 *                  Its register is released.
-	 * @throws YAPLException (TooManyDims)
-	 *                  if <code>dim</code> exceeds an implementation-defined maximum.
-	 */
-	public void storeArrayDim(int dim, IAttrib length)
-	throws YAPLException;
 	
 	/**
 	 * Allocate array at run time.
@@ -97,7 +84,10 @@ public interface ICodeGen {
 	 *                   holding the array base address.
 	 * @throws YAPLException
 	 */
-	public IAttrib allocArray(ArrayType arrayType)
+	public IAttrib allocArray(ArrayType arrayType, IAttrib dim1, IAttrib dim2)
+	throws YAPLException;
+        
+        public IAttrib allocArray(ArrayType arrayType, IAttrib dim1)
 	throws YAPLException;
 	
 	/**
@@ -234,4 +224,6 @@ public interface ICodeGen {
 	public void jump(String label);
 
         public byte callProc(String procName, List<IAttrib> arguments);
+        
+        public void neg(IAttrib attrib) throws YAPLException;
 }

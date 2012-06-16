@@ -191,32 +191,52 @@ SPECIAL_TOKEN:
   < COMMENT: <COMMENT_OPEN> (~["*"] | (["*"]~["/"]))* <COMMENT_CLOSE> >
 }
 
-void RelOp() throws YAPLException :
+Token RelOp() throws YAPLException :
 {
-    {info("Found: RelOp");}}
+    {info("Found: RelOp");}
+    Token tOp;
+}
 {
-    <LT> | <LEQ> | <GEQ> | <GT>
+    (tOp=<LT> | tOp=<LEQ> | tOp=<GEQ> | tOp=<GT>)
+    {
+        return tOp;
+    }
 }
 
-void EqualOp() throws YAPLException :
+Token EqualOp() throws YAPLException :
 {
-    {info("Found: EqualOp");}}
+    {info("Found: EqualOp");}
+    Token tOp;
+}
 {
-    <EQ> | <NEQ>
+    (tOp=<EQ> | tOp=<NEQ>)
+    {
+        return tOp;
+    }
 }
 
-void AddOp() throws YAPLException :
+Token AddOp() throws YAPLException :
 {
-    {info("Found: AddOp");}}
+    {info("Found: AddOp");}
+    Token tok;
+}
 {
-    <PLUS> | <MINUS>
+    (tok=<PLUS> | tok=<MINUS>)
+    {
+        return tok;
+    }
 }
 
-void MulOp() throws YAPLException :
+Token MulOp() throws YAPLException :
 {
-    {info("Found: MulOp");}}
+    {info("Found: MulOp");}
+    Token tOp;
+}
 {
-    <MULT> | <DIV> | <MOD>
+    (tOp=<MULT> | tOp=<DIV> | tOp=<MOD>)
+    {
+        return tOp;
+    }
 }
 
 /* Literal = "True" | "False" | number . */
@@ -252,6 +272,8 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
     Type type = parent.getType();
     IAttrib attr;
     IAttrib idx;
+    List<byte> listOfRegs = new List<byte>();
+    
 }
 {
     ( selector=<SQUARE_BRACKET_OPEN> idx = Expr() <SQUARE_BRACKET_CLOSE>
@@ -266,6 +288,8 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(selector);
             attr.setKind(IAttrib.ArrayElement);
+            //TODO: maybe a handling des vuam frei kummt brauchn
+            codeGen.freeReg(idx);
         }
     | <DOT> tIdent=<IDENT>
         {
@@ -302,7 +326,8 @@ IAttrib ArrayLen() throws YAPLException :
             if (s.getKind() != ISymbol.Variable && s.getKind() != ISymbol.Parameter)
                 throw new IllegalUseException(s, tIdent);
             
-            arrayAttr = new Attrib(s);
+            arrayAttr = new Attrib(s);            
+            arrayAttr.setKind(IAttrib.Address);            
             arrayAttr.setToken(tIdent);
         }
     [ arrayAttr = Selector(arrayAttr) ]
@@ -310,7 +335,7 @@ IAttrib ArrayLen() throws YAPLException :
         if (!(arrayAttr.getType() instanceof ArrayType))
             throw new YAPLException(CompilerError.ArrayLenNotArray, tIdent);
 
-        resultAttr = new Attrib(new IntType(), true);
+        resultAttr = codeGen.arrayLength(arrayAttr);        
         resultAttr.setToken(tIdent);
         return resultAttr;
     }
@@ -345,7 +370,7 @@ IAttrib PrimaryExpr() throws YAPLException :
         [ resultAttr = Selector(new Attrib(s)) ] | resultAttr = ArrayLen()
     )
     {
-        //codeGen.loadReg(resultAttr);
+        codeGen.loadReg(resultAttr);
         return resultAttr;
     }
 }
@@ -354,14 +379,19 @@ IAttrib UnaryExpr() throws YAPLException :
 {
     {info("Found: UnaryExpr");}
     IAttrib resultAttr;
+    Token tAddOp = null;
     boolean opSeen = false;
 }
 {
-    [ AddOp() { opSeen = true; } ] resultAttr = PrimaryExpr()
+    [ tAddOp=AddOp() { opSeen = true; } ] resultAttr = PrimaryExpr()
     {
-        if (opSeen && !(resultAttr.getType() instanceof IntType))
-            throw new YAPLException(CompilerError.IllegalOp1Type, resultAttr.getToken());
-
+        if (opSeen) {
+            if(!(resultAttr.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.IllegalOp1Type, resultAttr.getToken());
+            else if (tAddOp.image.equals("-"))
+                codeGen.neg(resultAttr);                
+        }         
+                
         return resultAttr;
     }
 }
@@ -370,19 +400,26 @@ IAttrib MulExpr() throws YAPLException :
 {
     {info("Found: MulExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
 }
 {
-    lvalue = UnaryExpr()
+    lvalue = UnaryExpr() 
+    {
+        codeGen.loadReg(lvalue);
+    }
     (
-        MulOp() rvalue = UnaryExpr()
+        tOp=MulOp() rvalue = UnaryExpr()
         {
             if (!(lvalue.getType() instanceof IntType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());
             if (!(rvalue.getType() instanceof IntType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);                        
         }
     )*
-    {
+    {        
         return lvalue;
     }
 }
@@ -391,16 +428,23 @@ IAttrib AddExpr() throws YAPLException :
 {
     {info("Found: AddExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
 }
 {
     lvalue = MulExpr()
+    {
+        codeGen.loadReg(lvalue);
+    }
     (
-        AddOp() rvalue = MulExpr()
+        tOp=AddOp() rvalue = MulExpr()
         {
             if (!(lvalue.getType() instanceof IntType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());
             if (!(rvalue.getType() instanceof IntType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);                        
         }
     )*
     {
@@ -412,28 +456,27 @@ IAttrib RelExpr() throws YAPLException :
 {
     {info("Found: RelExpr");}
     IAttrib lvalue, rvalue = null;
+    Token tOp;
 }
 {
     lvalue = AddExpr()
+    {
+        codeGen.loadReg(lvalue);
+    }
     [
-        RelOp() rvalue = AddExpr()
+        tOp=RelOp() rvalue = AddExpr()
         {
             if (!(lvalue.getType() instanceof IntType)) { info("lvalue: " + lvalue.getType());
                 throw new YAPLException(CompilerError.IllegalRelOpType, lvalue.getToken()); }
             if (!(rvalue.getType() instanceof IntType)) { info("rvalue: " + rvalue.getType());
                 throw new YAPLException(CompilerError.IllegalRelOpType, rvalue.getToken()); }
+
+            codeGen.loadReg(rvalue);
+            codeGen.relOp(lvalue, tOp, rvalue);                        
         }
     ]
     {
-        if (rvalue == null) {
-            info("return lvalue: " + lvalue.getType());
-            return lvalue;
-        } else {
-            info("return bool");
-            IAttrib resultAttr = new Attrib(new BoolType(), true);
-            resultAttr.setToken(lvalue.getToken());
-            return resultAttr;
-        }
+        return lvalue;
     }
 }
 
@@ -441,28 +484,27 @@ IAttrib EqualExpr() throws YAPLException :
 {
     {info("Found: EqualExpr");}
     IAttrib lvalue, rvalue = null;
+    Token tOp;
 }
 {
     lvalue = RelExpr()
+    {
+        codeGen.loadReg(lvalue);
+    }
     [
-        EqualOp() rvalue = RelExpr()
+        tOp=EqualOp() rvalue = RelExpr()
         {
             if (!lvalue.getType().isCompatible(rvalue.getType()))
                 throw new YAPLException(CompilerError.IllegalEqualOpType, lvalue.getToken());
             if (!((lvalue.getType() instanceof IntType && rvalue.getType() instanceof IntType) || (lvalue.getType() instanceof BoolType && rvalue.getType() instanceof BoolType)))
                 throw new YAPLException(CompilerError.IllegalEqualOpType, lvalue.getToken());
+
+            codeGen.loadReg(rvalue);
+            codeGen.relOp(lvalue, tOp, rvalue);                        
         }
     ]
     {
-        if (rvalue == null) {
-            info("return lvalue: " + lvalue.getType());
-            return lvalue;
-        } else {
-            info("return bool");
-            IAttrib resultAttr = new Attrib(new BoolType(), true);
-            resultAttr.setToken(lvalue.getToken());
-            return resultAttr;
-        }
+        return lvalue;
     }
 }
 
@@ -470,17 +512,24 @@ IAttrib CondAndExpr() throws YAPLException :
 {
     {info("Found: CondAndExpr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
 }
 {
     lvalue = EqualExpr()
+    {
+        codeGen.loadReg(lvalue);
+    }
     (
-        <AND> rvalue = EqualExpr()
+        tOp=<AND> rvalue = EqualExpr()
         {
             if (!(lvalue.getType() instanceof BoolType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken());
             if (!(rvalue.getType() instanceof BoolType))
                 throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken());
-        }
+
+            codeGen.loadReg(rvalue);
+            codeGen.op2(lvalue, tOp, rvalue);
+        }        
     )*
     {
         return lvalue;
@@ -492,7 +541,7 @@ IAttrib CreationExpr() throws YAPLException :
     {info("Found: CreationExpr");}
     Type type;
     ArrayType resultType;
-    IAttrib dim;
+    IAttrib dim1, dim2 = null;
     Token newTok;
 }
 {
@@ -501,13 +550,13 @@ IAttrib CreationExpr() throws YAPLException :
         resultType = new ArrayType(type);
         resultType.setDim(1);
     }
-    <SQUARE_BRACKET_OPEN> dim = Expr() <SQUARE_BRACKET_CLOSE>
+    <SQUARE_BRACKET_OPEN> dim1 = Expr() <SQUARE_BRACKET_CLOSE>
     {
         if (!(dim.getType() instanceof IntType))
             throw new YAPLException(CompilerError.BadArraySelector, dim.getToken());
     }
     [
-        <SQUARE_BRACKET_OPEN> dim = Expr() <SQUARE_BRACKET_CLOSE>
+        <SQUARE_BRACKET_OPEN> dim2 = Expr() <SQUARE_BRACKET_CLOSE>
         {
             resultType = new ArrayType(resultType);
 
@@ -515,8 +564,9 @@ IAttrib CreationExpr() throws YAPLException :
                 throw new YAPLException(CompilerError.BadArraySelector, dim.getToken());
         }
     ]
-    {
-        IAttrib resultAttr = new Attrib(resultType, false);
+    {        
+        
+        IAttrib resultAttr = codeGen.allocArray(resultType, dim1, dim2);
         resultAttr.setToken(newTok);
         return resultAttr;
     }
@@ -526,21 +576,28 @@ IAttrib Expr() throws YAPLException :
 {
     {info("Found: Expr");}
     IAttrib lvalue, rvalue;
+    Token tOp;
 }
 {
     (
         lvalue = CondAndExpr()
+        {
+            codeGen.loadReg(lvalue);
+        }
         (
-            <OR> rvalue = CondAndExpr()
+            tOp=<OR> rvalue = CondAndExpr()
             {
                 if (!(lvalue.getType() instanceof BoolType)) { info("lvalue not bool in Expr(), is " + lvalue.getType());
                     throw new YAPLException(CompilerError.IllegalOp2Type, lvalue.getToken()); }
                 if (!(rvalue.getType() instanceof BoolType)) { info("rvalue not bool in Expr(), is " + lvalue.getType());
                     throw new YAPLException(CompilerError.IllegalOp2Type, rvalue.getToken()); }
+
+                codeGen.loadReg(rvalue);
+                codeGen.op2(lvalue, tOp, rvalue);
             }
         )* | lvalue = CreationExpr()
     )
-    {
+    {       
         return lvalue;
     }
 }
@@ -613,13 +670,9 @@ IAttrib ProcedureCall() throws YAPLException :
         
         if(arguments != null)
             for(IAttrib a : arguments)
-                codeGen.loadReg(a);
+                codeGen.loadReg(a); //unnecessary
 
-        codeGen.callProc(tIdent.image, arguments);
-
-        if(arguments != null)
-            for(IAttrib a : arguments)
-                codeGen.freeReg(a);
+        codeGen.callProc(tIdent.image, arguments);       
 
         return resultAttr;
     }
@@ -651,7 +704,7 @@ void Assignment() throws YAPLException :
         if (rvalue.isConstant() && (rvalue.getType() instanceof ArrayType || rvalue.getType() instanceof RecordType))
             lvalue.setConstant(true);
 
-        codeGen.assign(lvalue, rvalue);
+        codeGen.assign(lvalue, rvalue);        
     }
 }
 
@@ -665,6 +718,9 @@ void IfStatement() throws YAPLException :
     {
         if (!(attr.getType() instanceof BoolType))
             throw new YAPLException(CompilerError.CondNotBool, attr.getToken());
+        
+        //TODO - replace freeReg by codeGen function
+        codeGen.freeReg(attr);
     }
     <THEN> StatementList() [ <ELSE> StatementList() ] <ENDIF>
 }
@@ -679,6 +735,9 @@ void WhileStatement() throws YAPLException :
     {
         if (!(attr.getType() instanceof BoolType))
             throw new YAPLException(CompilerError.CondNotBool, attr.getToken());
+
+        //TODO - replace freeReg by codeGen function
+        codeGen.freeReg(attr);
     }
     <DO> StatementList() <ENDWHILE>
 }
@@ -806,11 +865,11 @@ Type ReturnType() throws YAPLException :
     }
 }
 
-IAttrib ConstDecl() throws YAPLException :
+void ConstDecl() throws YAPLException :
 {
     {info("Found: ConstDecl");}
     Token tIdent;
-    IAttrib attr;
+    IAttrib rValue, lValue;
 }
 {
     <CONST> tIdent=<IDENT> 
@@ -818,12 +877,15 @@ IAttrib ConstDecl() throws YAPLException :
             ISymbol s = new Symbol(tIdent, ISymbol.Constant);
             symbolTable.addSymbol(s);                           
         }
-    <CONST_ASSIGN> attr=Literal() <SEMICOLON>
+    <CONST_ASSIGN> rValue=Literal() <SEMICOLON>
     {
-        attr.setKind(IAttrib.Constant);
-        s.setType(attr.getType());     
-        codeGen.allocVariable(s);   
-        return attr;
+        rValue.setKind(IAttrib.Constant);
+        s.setType(rValue.getType());                 
+        codeGen.allocVariable(s);  
+        
+        lValue = new Attrib(s);
+        lValue.setKind(IAttrib.Address);
+        codeGen.assign(lValue, rValue);        
     }
 }
 

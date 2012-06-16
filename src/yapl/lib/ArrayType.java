@@ -9,7 +9,7 @@ import yapl.interfaces.CompilerError;
  */
 public class ArrayType extends Type {
     private Type elem;
-    private int dim;
+    private int dim;    
     
     public ArrayType(Type type) {
         if (type instanceof IntType || type instanceof BoolType || type instanceof RecordType) {
