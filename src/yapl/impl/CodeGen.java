@@ -138,6 +138,7 @@ public class CodeGen implements ICodeGen {
         arr.setKind(IAttrib.ArrayElement);
         arr.setType(arrtype.getElem());
         arr.setIndex(index);
+        freeReg(index);
     }
 
     @Override
@@ -326,7 +327,7 @@ public class CodeGen implements ICodeGen {
         retAttr.setConstant(false);
         retAttr.setRegister(backend.allocReg());
                 
-        backend.allocArray(retAttr.getRegister(), dim1.getRegister(), (dim2 != null ? dim2.getRegister() : backend.zeroReg()));        
+        backend.allocArray(retAttr.getRegister(), dim1.getRegister(), (dim2 != null ? dim2.getRegister() : (byte)-1));        
         
         return retAttr;
     }
@@ -341,4 +342,16 @@ public class CodeGen implements ICodeGen {
         loadReg(attrib);
         backend.neg(attrib.getRegister(), attrib.getRegister());
     }
+//
+//    @Override
+//    public byte loadArrayElement(IAttrib arr, IAttrib index) {
+//        byte elementReg = backend.allocReg();
+//        backend.loadArrayElement(elementReg, arr.getRegister(), index.getRegister());
+//        return elementReg;
+//    }
+//
+//    @Override
+//    public void storeArrayElement(IAttrib arr, IAttrib index, IAttrib src) {
+//        backend.storeArrayElement(src.getRegister(), arr.getRegister(), index.getRegister());
+//    }
 }

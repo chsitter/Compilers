@@ -111,6 +111,10 @@ public interface ICodeGen {
 	 */
 	public void arrayOffset(IAttrib arr, IAttrib index) 
 	throws YAPLException;
+//        
+//        public byte loadArrayElement(IAttrib arr, IAttrib index);
+//        
+//        public void storeArrayElement(IAttrib arr, IAttrib index, IAttrib src);
 
 	/**
 	 * Generate code for array length computation at run time.

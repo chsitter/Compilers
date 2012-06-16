@@ -272,8 +272,6 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
     Type type = parent.getType();
     IAttrib attr;
     IAttrib idx;
-    List<byte> listOfRegs = new List<byte>();
-    
 }
 {
     ( selector=<SQUARE_BRACKET_OPEN> idx = Expr() <SQUARE_BRACKET_CLOSE>
@@ -285,11 +283,8 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
             if (!(idx.getType() instanceof IntType))
                 throw new YAPLException(CompilerError.BadArraySelector, selector);
 
-            attr = new Attrib(type, parent.isConstant());
-            attr.setToken(selector);
-            attr.setKind(IAttrib.ArrayElement);
-            //TODO: maybe a handling des vuam frei kummt brauchn
-            codeGen.freeReg(idx);
+            codeGen.arrayOffset(parent, idx);
+            attr = parent;  
         }
     | <DOT> tIdent=<IDENT>
         {
@@ -367,7 +362,7 @@ IAttrib PrimaryExpr() throws YAPLException :
                     resultAttr.setKind(IAttrib.Address);
                 resultAttr.setToken(tIdent);
             }
-        [ resultAttr = Selector(new Attrib(s)) ] | resultAttr = ArrayLen()
+        [ resultAttr = Selector(resultAttr) ] | resultAttr = ArrayLen()
     )
     {
         codeGen.loadReg(resultAttr);
@@ -552,16 +547,16 @@ IAttrib CreationExpr() throws YAPLException :
     }
     <SQUARE_BRACKET_OPEN> dim1 = Expr() <SQUARE_BRACKET_CLOSE>
     {
-        if (!(dim.getType() instanceof IntType))
-            throw new YAPLException(CompilerError.BadArraySelector, dim.getToken());
+        if (!(dim1.getType() instanceof IntType))
+            throw new YAPLException(CompilerError.BadArraySelector, dim1.getToken());
     }
     [
         <SQUARE_BRACKET_OPEN> dim2 = Expr() <SQUARE_BRACKET_CLOSE>
         {
             resultType = new ArrayType(resultType);
 
-            if (!(dim.getType() instanceof IntType))
-                throw new YAPLException(CompilerError.BadArraySelector, dim.getToken());
+            if (!(dim2.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.BadArraySelector, dim2.getToken());
         }
     ]
     {        

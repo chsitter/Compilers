@@ -38,6 +38,8 @@ public class BackendMIPS implements IBackendMIPS {
     private int curProcNumArgs = -1;
     private int curProcArgsPassed = -1;
     
+    private static int labelCount = 0;
+    
     private PrintStream out;   
     
     public BackendMIPS(PrintStream out) {
@@ -61,6 +63,10 @@ public class BackendMIPS implements IBackendMIPS {
     private byte popRegsStack() {
         if(storedRegsStack.isEmpty()) throw new IllegalStateException("Stack is empty!");
         return storedRegsStack.remove(0);                
+    }
+    
+    public int getNextLabelNumber() {
+        return labelCount++;
     }
     
     
@@ -148,21 +154,57 @@ public class BackendMIPS implements IBackendMIPS {
         //TODO: what to return???
         return 0;
     }
+    
+    public void allocArray(byte destReg, byte regDim1) {
+        allocArray(destReg, regDim1, (byte)-1);
+    }
 
     @Override
     public void allocArray(byte destReg, byte regDim1, byte regDim2) {
-        setSegType(SEG_TEXT);
+        setSegType(SEG_TEXT);        
         out.println("move $a0, $" + regDim1);
-        out.println("mul   $a0, $a0, $" + regDim2);
-        out.print("addi   $a0, $a0, 2");
-        comment("$a0 = n * m + 2");
-        out.println("li $v0, 9");
-        comment("sbrk");
-        out.println("syscall");
-        storeWordReg(regDim1, (byte) 2 /* v0 */);
-        storeWordReg(regDim2, (byte) 2 /* v0 */, wordSize());
+        out.print("addi $a0, $a0, 1");
+        comment("alloc space for length information");
+        byte wordSize = allocReg();
+        out.println("li $" + wordSize + ", " + wordSize());
+        mul((byte)4 /*a0*/, (byte)4, wordSize);
+        out.print("li $v0, 9");
+        comment("issue sbrk");
+        out.print("syscall");
+        comment("alloc space for 1st array dim");
         out.print("move   $" + destReg + ", $v0");
-        comment("move start address of array to destReg");
+        comment("move start address of array to destReg");                
+        out.println("sw $" + regDim1 + ", ($" + destReg + ")");
+        
+        //if regDim2 != -1       
+        if(regDim2 != (byte)-1) {
+            byte t1 = allocReg();
+            byte t2 = allocReg();            
+            out.println("move $" + t1 + ", $" + regDim1);
+            out.print("add $" + t2 + ", $a0, $" + destReg);
+            comment("compute addr. of dim1 elem");
+            int lNr = getNextLabelNumber();
+            
+            out.println("move $a0, $" + regDim2);
+            out.println("addi $a0, $a0, 1");
+            mul((byte)4 /*a0*/, (byte)4, wordSize);
+            emitLabel("allocArrayWhile_" + lNr, "");
+            out.println("blez $" + t1 + ", endAllocArray_" + lNr);
+            out.print("li $v0, 9");
+            out.print("sycall");
+            comment("sbrk");            
+            
+            out.println("subi $" + t2 + ", " + wordSize());
+            out.println("sw $v0, ($" + t2 + ")");
+            out.println("sw $" + regDim2 + ", ($v0)");
+            
+            out.println("subi, $" + t1 + ", $" + t1 + ", 1");
+            jump("allocArrayWhile_" + lNr);
+            emitLabel("endAllocArray_" + lNr, "");
+            freeReg(t1);
+            freeReg(t2);
+        }
+        freeReg(wordSize);
     }
 
     @Override
@@ -228,7 +270,7 @@ public class BackendMIPS implements IBackendMIPS {
         if (index < 0)
             throw new IllegalArgumentException("index must be >= 0");
         
-        loadWordReg(dest, baseAddr, (index + 2) * wordSize());
+        loadWordReg(dest, baseAddr, (index + 1) * wordSize());
     }
 
     @Override
@@ -237,40 +279,8 @@ public class BackendMIPS implements IBackendMIPS {
         if (index < 0)
             throw new IllegalArgumentException("index must be >= 0");
         
-        storeWordReg(src, baseAddr, (index + 2) * wordSize());
-    }
-
-    @Override
-    public void loadArrayElement(byte dest, byte baseAddr, byte indexDim1, byte indexDim2) {
-        setSegType(SEG_TEXT);
-        if (indexDim1 < 0 || indexDim2 < 0)
-            throw new IllegalArgumentException("index must be >= 0");
-        
-        comment("calc address of element:");
-        loadWordReg(dest, baseAddr, wordSize());
-        out.println("mul   $" + dest + ", $" + dest + ", " + indexDim1 * wordSize());
-        out.println("addi   $" + dest + ", $" + dest + ", " + indexDim2 * wordSize());
-        add(dest, dest, baseAddr);
-        out.println("addi   $" + dest + ", $" + dest + ", " + 2 * wordSize());
-        loadWordReg(dest, dest);
-    }
-
-    @Override
-    public void storeArrayElement(byte src, byte baseAddr, byte indexDim1, byte indexDim2) {
-        setSegType(SEG_TEXT);
-        if (indexDim1 < 0 || indexDim2 < 0)
-            throw new IllegalArgumentException("index must be >= 0");
-        
-        comment("calc address of element:");
-        byte tmp = allocReg();
-        loadWordReg(tmp, baseAddr, wordSize());
-        out.println("mul   $" + tmp + ", $" + tmp + ", " + indexDim1 * wordSize());
-        out.println("addi   $" + tmp + ", $" + tmp + ", " + indexDim2 * wordSize());
-        add(tmp, tmp, baseAddr);
-        out.println("addi   $" + tmp + ", $" + tmp + ", " + 2 * wordSize()); //add offset 8 because 2 words are used for internal representation
-        storeWordReg(src, tmp);
-        freeReg(tmp);
-    }
+        storeWordReg(src, baseAddr, (index + 1) * wordSize());
+    }        
 
     @Override
     public void arrayLength(byte dest, byte baseAddr) {
