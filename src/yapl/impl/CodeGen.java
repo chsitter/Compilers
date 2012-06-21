@@ -4,10 +4,7 @@ import java.io.PrintStream;
 import java.util.List;
 import yapl.exceptions.YAPLException;
 import yapl.interfaces.*;
-import yapl.lib.ArrayType;
-import yapl.lib.BoolType;
-import yapl.lib.IntType;
-import yapl.lib.Type;
+import yapl.lib.*;
 import yapl.parser.Token;
 
 /**
@@ -139,7 +136,28 @@ public class CodeGen implements ICodeGen {
         arr.setType(arrtype.getElem());
         arr.setIndex(index);
         freeReg(index);
+        
+        //TODO: Taschwers entire method:
+//        if (!(arr.getType() instanceof ArrayType)) {
+//            throw new YAPLException(YAPLException.Internal);
+//        }
+//        byte reg = loadValue(arr);
+//        byte idx = loadValue(index);
+//        backend.arrayOffset(reg, reg, idx);
+//        freeReg(index);
+//        arr.setType(((ArrayType) arr.getType()).base);
+//        arr.setKind(Attrib.RegAddress);
     }
+    
+    //TODO: Taschwer:
+//    public void recordOffset(IAttrib record, Symbol field) throws YAPLException {
+//        if (!(record.getType() instanceof RecordType))
+//            throw new YAPLException(YAPLException.Internal);
+//        byte reg = loadValue(record);
+//        backend.addConst(reg, reg, field.getOffset());
+//        record.setType(field.getType());
+//        record.setKind(Attrib.RegAddress);
+//    }
 
     @Override
     public IAttrib arrayLength(IAttrib arr) throws YAPLException {
@@ -151,6 +169,13 @@ public class CodeGen implements ICodeGen {
 
     @Override
     public void assign(IAttrib lvalue, IAttrib expr) throws YAPLException {
+        //TODO: Taschwers entire method:
+//        byte lreg = loadAddres(lvalue);
+//        byte reg = laodValue(expr);
+//        backend.storeWortReg(reg, lreg);
+//        freeReg(expr);
+//        freeReg(lvalue);
+        
         if (!lvalue.getType().isCompatible(expr.getType())) {
             throw new YAPLException(CompilerError.TypeMismatchAssign);
         }
@@ -172,6 +197,27 @@ public class CodeGen implements ICodeGen {
         freeReg(expr);
         freeReg(lvalue);
     }
+    
+    //TODO: partial Taschwer method:
+//    public void loadValue(...) {
+//        //...
+//        switch (attrKind) {
+//            case Attrib.RegAddress:
+//                backend.loadWordReg(reg, reg);
+//                break;
+//            case Attrib.Constant:
+//                int value = 0;
+//                if (attrType instanceof IntType)
+//                    //value = ...
+//                    //else boolean ...
+//                    //else throw yaplexc
+//                    backend.loadConst(reg, value);
+//                    break;
+//            case Attrib.Address:
+//                backend.loadWort(reg, attr.getOffset(), attr.isGlobal);
+//        }
+        //...
+    //}
 
     @Override
     public IAttrib op2(IAttrib x, Token op, IAttrib y) throws YAPLException {

@@ -265,7 +265,7 @@ IAttrib Literal() throws YAPLException :
         }
 }
 
-IAttrib Selector(IAttrib parent) throws YAPLException :
+IAttrib Selector(IAttrib parent) throws YAPLException : //TODO: Taschwer returns void
 {
     {info("Found: Selector");}
     Token tIdent, selector;
@@ -289,7 +289,10 @@ IAttrib Selector(IAttrib parent) throws YAPLException :
     | <DOT> tIdent=<IDENT>
         {
             if (!(type instanceof RecordType))
-                throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);
+                throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);   //TODO: Taschwer does this already after <DOT>
+
+//TODO: Taschwer:
+RecordType record = (RecordType) lvalue.getType();
             
             ISymbol sym = ((RecordType)type).getMember(tIdent.image);
             if (sym == null)
