@@ -53,7 +53,7 @@ public interface IAttrib {
 	 * The associated index operand is set using {@link #setIndex(Attrib)}.
 	 * Both the base address and the index are held in registers.
 	 */
-	public static final byte ArrayElement = 4;
+	public static final byte ArrayElement = 4;       
 	
 	/** Return the kind of operand represented by this object.
 	 * 

@@ -126,6 +126,8 @@ public interface IBackendMIPS {
      * @param destReg register where to store the array start address.
      */
     public void allocArray(byte destReg, byte regDim1, byte regDim2);
+    
+    public void arrayOffset(byte destReg, byte baseReg, byte idxReg);
 
     /*
      * --- load/store operations ---

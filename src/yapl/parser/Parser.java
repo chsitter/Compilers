@@ -201,7 +201,10 @@ public class Parser implements ParserConstants {
       jj_consume_token(DOT);
       tIdent = jj_consume_token(IDENT);
             if (!(type instanceof RecordType))
-                {if (true) throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);}
+                {if (true) throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);}   //TODO: Taschwer does this already after <DOT>
+
+//TODO: Taschwer:
+//RecordType record = (RecordType) lvalue.getType();
 
             ISymbol sym = ((RecordType)type).getMember(tIdent.image);
             if (sym == null)
@@ -297,6 +300,9 @@ public class Parser implements ParserConstants {
                     resultAttr.setKind(IAttrib.Constant);
                 else if (s.getKind() == ISymbol.Variable)
                     resultAttr.setKind(IAttrib.Address);
+                else if (s.getKind() == ISymbol.Parameter) {
+                    resultAttr.setKind(IAttrib.Address);
+                }
                 resultAttr.setToken(tIdent);
           switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
           case SQUARE_BRACKET_OPEN:
@@ -665,7 +671,12 @@ public class Parser implements ParserConstants {
             for(IAttrib a : arguments)
                 codeGen.loadReg(a); //unnecessary
 
-        codeGen.callProc(tIdent.image, arguments);
+        byte returnReg = codeGen.callProc(tIdent.image, arguments, s.getType() instanceof VoidType);
+
+        if(returnReg != (byte)-1) {
+            resultAttr.setKind(IAttrib.Register);
+            resultAttr.setRegister(returnReg);
+        }
 
         {if (true) return resultAttr;}
     throw new Error("Missing return statement in function");
@@ -707,18 +718,24 @@ public class Parser implements ParserConstants {
   static final public void IfStatement() throws ParseException, YAPLException {
     {info("Found: IfStatement");}
     IAttrib attr;
+    String lElse, lEnd;
+    boolean elseSeen = false;
     jj_consume_token(IF);
     attr = Expr();
         if (!(attr.getType() instanceof BoolType))
             {if (true) throw new YAPLException(CompilerError.CondNotBool, attr.getToken());}
 
-        //TODO - replace freeReg by codeGen function
-        codeGen.freeReg(attr);
+        lElse = codeGen.newLabel();
+        lEnd = codeGen.newLabel();
+        codeGen.branchIfFalse(attr, lElse);
     jj_consume_token(THEN);
     StatementList();
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case ELSE:
       jj_consume_token(ELSE);
+        codeGen.jump(lEnd);
+        elseSeen = true;
+        codeGen.assignLabel(lElse);
       StatementList();
       break;
     default:
@@ -726,21 +743,28 @@ public class Parser implements ParserConstants {
       ;
     }
     jj_consume_token(ENDIF);
+        if(!elseSeen)   codeGen.assignLabel(lElse);
+        else            codeGen.assignLabel(lEnd);
   }
 
   static final public void WhileStatement() throws ParseException, YAPLException {
     {info("Found: WhileStatement");}
     IAttrib attr;
+    String lBegin, lEnd;
+        lBegin = codeGen.newLabel();
+        lEnd = codeGen.newLabel();
+        codeGen.assignLabel(lBegin, "while " + lBegin);
     jj_consume_token(WHILE);
     attr = Expr();
         if (!(attr.getType() instanceof BoolType))
             {if (true) throw new YAPLException(CompilerError.CondNotBool, attr.getToken());}
 
-        //TODO - replace freeReg by codeGen function
-        codeGen.freeReg(attr);
+        codeGen.branchIfFalse(attr, lEnd);
     jj_consume_token(DO);
     StatementList();
     jj_consume_token(ENDWHILE);
+        codeGen.jump(lBegin);
+        codeGen.assignLabel(lEnd, "end while " + lBegin);
   }
 
   static final public void ReturnStatement() throws ParseException, YAPLException {
@@ -779,7 +803,7 @@ public class Parser implements ParserConstants {
             {if (true) throw new YAPLException(CompilerError.InvalidReturnType, retAttr.getToken());}
 
         if(s.getKind() == ISymbol.Procedure) {
-            codeGen.exitProc(s.getName(), retAttr);
+            codeGen.returnFromProc(s.getName(), retAttr);
         }
   }
 
@@ -1086,6 +1110,7 @@ public class Parser implements ParserConstants {
             ISymbol s = new Symbol(tIdent, ISymbol.Parameter);
             s.setType(type);
             s.setReadonly(readonly);
+            s.setKind(ISymbol.Parameter);
             symbolTable.addSymbol(s);
             {if (true) return s;}
     throw new Error("Missing return statement in function");
@@ -1094,7 +1119,9 @@ public class Parser implements ParserConstants {
   static final public void FormalParamList(ProcedureSymbol proc) throws ParseException, YAPLException {
     {info("Found: FormalParamList");}
     ISymbol param;
+    int paramIdx = 0;
     param = FormalParam();
+        param.setOffset(codeGen.formalParamOffset(paramIdx));
         proc.addParameter(param);
     label_11:
     while (true) {
@@ -1108,6 +1135,8 @@ public class Parser implements ParserConstants {
       }
       jj_consume_token(COMMA);
       param = FormalParam();
+            paramIdx++;
+            param.setOffset(codeGen.formalParamOffset(paramIdx));
             proc.addParameter(param);
     }
   }
@@ -1139,6 +1168,7 @@ public class Parser implements ParserConstants {
       ;
     }
     jj_consume_token(CLOSE_PARENTH);
+            codeGen.enterProc(tStartIdent.image, s.getParametersCount());
     Block();
     tEndIdent = jj_consume_token(IDENT);
             if (!tEndIdent.image.equals(tStartIdent.image)) {if (true) throw new ProcedureNameMismatchException(tStartIdent, tEndIdent);}
@@ -1146,6 +1176,8 @@ public class Parser implements ParserConstants {
     jj_consume_token(SEMICOLON);
         if (!(s.getType() instanceof VoidType) && !s.getReturnSeen())
             {if (true) throw new YAPLException(CompilerError.MissingReturn, tEndIdent);}
+
+        codeGen.exitProc("exit_" + tStartIdent.image);
   }
 
   static final public void Program() throws ParseException, YAPLException {
@@ -1154,7 +1186,6 @@ public class Parser implements ParserConstants {
     ISymbol symProgram;
     jj_consume_token(PROGRAM);
     tProgramName = jj_consume_token(IDENT);
-            codeGen.enterMain();
             symbolTable.openScope(false);
             symProgram = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.setParentSymbol(symProgram);
@@ -1186,6 +1217,7 @@ public class Parser implements ParserConstants {
       }
     }
     jj_consume_token(BEGIN);
+            codeGen.enterMain();
     StatementList();
     jj_consume_token(END);
     tEndIdent = jj_consume_token(IDENT);
@@ -1210,8 +1242,18 @@ public class Parser implements ParserConstants {
     finally { jj_save(1, xla); }
   }
 
-  static private boolean jj_3R_19() {
-    if (jj_3R_23()) return true;
+  static private boolean jj_3R_25() {
+    if (jj_3R_26()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_35() {
+    if (jj_3R_37()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_37() {
+    if (jj_scan_token(HASH)) return true;
     return false;
   }
 
@@ -1225,18 +1267,18 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_15() {
-    if (jj_3R_17()) return true;
+  static private boolean jj_3R_14() {
+    if (jj_scan_token(IDENT)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_15()) jj_scanpos = xsp;
+    if (jj_scan_token(ASSIGN)) return true;
+    if (jj_3R_16()) return true;
     return false;
   }
 
-  static private boolean jj_3R_37() {
-    if (jj_scan_token(HASH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_25() {
-    if (jj_3R_26()) return true;
+  static private boolean jj_3R_34() {
+    if (jj_scan_token(IDENT)) return true;
     return false;
   }
 
@@ -1245,13 +1287,13 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_35() {
-    if (jj_3R_37()) return true;
+  static private boolean jj_3R_23() {
+    if (jj_scan_token(NEW)) return true;
     return false;
   }
 
-  static private boolean jj_3R_34() {
-    if (jj_scan_token(IDENT)) return true;
+  static private boolean jj_3R_27() {
+    if (jj_3R_28()) return true;
     return false;
   }
 
@@ -1265,33 +1307,23 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_23() {
-    if (jj_scan_token(NEW)) return true;
-    return false;
-  }
-
   static private boolean jj_3R_38() {
     if (jj_scan_token(TRUE)) return true;
     return false;
   }
 
-  static private boolean jj_3R_27() {
-    if (jj_3R_28()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_14() {
-    if (jj_scan_token(IDENT)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_15()) jj_scanpos = xsp;
-    if (jj_scan_token(ASSIGN)) return true;
-    if (jj_3R_16()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_32() {
     if (jj_3R_36()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_18() {
+    if (jj_3R_22()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_24() {
+    if (jj_3R_25()) return true;
     return false;
   }
 
@@ -1305,11 +1337,6 @@ public class Parser implements ParserConstants {
     if (jj_3R_40()) return true;
     }
     }
-    return false;
-  }
-
-  static private boolean jj_3R_18() {
-    if (jj_3R_22()) return true;
     return false;
   }
 
@@ -1332,11 +1359,6 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_24() {
-    if (jj_3R_25()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_16() {
     Token xsp;
     xsp = jj_scanpos;
@@ -1344,17 +1366,6 @@ public class Parser implements ParserConstants {
     jj_scanpos = xsp;
     if (jj_3R_19()) return true;
     }
-    return false;
-  }
-
-  static private boolean jj_3_2() {
-    if (jj_3R_14()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_21() {
-    if (jj_scan_token(DOT)) return true;
-    if (jj_scan_token(IDENT)) return true;
     return false;
   }
 
@@ -1376,8 +1387,35 @@ public class Parser implements ParserConstants {
     return false;
   }
 
+  static private boolean jj_3R_21() {
+    if (jj_scan_token(DOT)) return true;
+    if (jj_scan_token(IDENT)) return true;
+    return false;
+  }
+
   static private boolean jj_3R_33() {
     if (jj_scan_token(OPEN_PARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_22() {
+    if (jj_3R_24()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_13() {
+    if (jj_scan_token(IDENT)) return true;
+    if (jj_scan_token(OPEN_PARENTH)) return true;
+    return false;
+  }
+
+  static private boolean jj_3_2() {
+    if (jj_3R_14()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_15() {
+    if (jj_3R_17()) return true;
     return false;
   }
 
@@ -1387,8 +1425,8 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_22() {
-    if (jj_3R_24()) return true;
+  static private boolean jj_3R_19() {
+    if (jj_3R_23()) return true;
     return false;
   }
 
@@ -1399,12 +1437,6 @@ public class Parser implements ParserConstants {
     jj_scanpos = xsp;
     if (jj_3R_21()) return true;
     }
-    return false;
-  }
-
-  static private boolean jj_3R_13() {
-    if (jj_scan_token(IDENT)) return true;
-    if (jj_scan_token(OPEN_PARENTH)) return true;
     return false;
   }
 

@@ -4,7 +4,10 @@ import java.io.PrintStream;
 import java.util.List;
 import yapl.exceptions.YAPLException;
 import yapl.interfaces.*;
-import yapl.lib.*;
+import yapl.lib.ArrayType;
+import yapl.lib.BoolType;
+import yapl.lib.IntType;
+import yapl.lib.Type;
 import yapl.parser.Token;
 
 /**
@@ -50,6 +53,10 @@ public class CodeGen implements ICodeGen {
     public void assignLabel(String label) {
         backend.emitLabel(label, null);
     }
+    
+    public void assignLabel(String label, String comment) {
+        backend.emitLabel(label, comment);
+    }
 
     @Override
     public byte loadReg(IAttrib attr) throws YAPLException {
@@ -86,8 +93,8 @@ public class CodeGen implements ICodeGen {
                 backend.loadArrayElement(reg, baseReg, idx.getRegister());
                 backend.freeReg(baseReg);
                 freeReg(idx);
-                break;
-            }
+                break;                
+            }            
             default:
                 throw new YAPLException(YAPLException.Internal);
         }
@@ -135,7 +142,7 @@ public class CodeGen implements ICodeGen {
         arr.setKind(IAttrib.ArrayElement);
         arr.setType(arrtype.getElem());
         arr.setIndex(index);
-        freeReg(index);
+        //freeReg(index);
         
         //TODO: Taschwers entire method:
 //        if (!(arr.getType() instanceof ArrayType)) {
@@ -341,7 +348,9 @@ public class CodeGen implements ICodeGen {
     }
 
     @Override
-    public byte callProc(String procName, List<IAttrib> arguments) {
+    public byte callProc(String procName, List<IAttrib> arguments, boolean isVoid) {
+        byte destReg = isVoid ? -1 : backend.allocReg();
+        
         if (arguments != null) {
             backend.prepareProcCall(arguments.size());
             for (int i = 0; i < arguments.size(); i++) {
@@ -350,8 +359,7 @@ public class CodeGen implements ICodeGen {
         } else {
             backend.prepareProcCall(0);
         }
-
-        byte destReg = backend.allocReg();
+        
         backend.callProc(destReg, procName);
         
         if(arguments != null)
@@ -362,7 +370,7 @@ public class CodeGen implements ICodeGen {
     }
 
     @Override
-    public void exitProc(String procName, IAttrib retAttr) throws YAPLException {
+    public void returnFromProc(String procName, IAttrib retAttr) throws YAPLException {
         backend.returnFromProc("exit_" + procName, retAttr.getRegister());
         freeReg(retAttr);
     }
@@ -400,4 +408,19 @@ public class CodeGen implements ICodeGen {
 //    public void storeArrayElement(IAttrib arr, IAttrib index, IAttrib src) {
 //        backend.storeArrayElement(src.getRegister(), arr.getRegister(), index.getRegister());
 //    }
+
+    @Override
+    public void exitProc(String label) {
+        backend.exitProc(label);
+    }
+
+    @Override
+    public void enterProc(String label, int nParams) {
+        backend.enterProc(label, nParams);
+    }
+
+    @Override
+    public int formalParamOffset(int idx) {
+        return (idx + 2) * backend.wordSize();
+    }
 }

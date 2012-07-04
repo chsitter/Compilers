@@ -37,6 +37,7 @@ public class BackendMIPS implements IBackendMIPS {
     private ArrayList<Byte> storedRegsStack = new ArrayList<Byte>();
     private int curProcNumArgs = -1;
     private int curProcArgsPassed = -1;
+    private int currStackOffset = 0;
     
     private static int labelCount = 0;
     
@@ -101,7 +102,7 @@ public class BackendMIPS implements IBackendMIPS {
     @Override
     public void freeReg(byte reg) {
         if (!freeRegisters.contains(reg))
-            freeRegisters.add(reg);
+            freeRegisters.add(0, reg);
     }
 
     @Override
@@ -149,10 +150,13 @@ public class BackendMIPS implements IBackendMIPS {
     @Override
     public int allocStack(int bytes, String comment) {
         setSegType(SEG_TEXT);
+        //int oldOffset = currStackOffset;
+        
         out.print("subi $sp, $sp, " + bytes + "\t");
-        comment(comment);
-        //TODO: what to return???
-        return 0;
+        comment(comment);        
+        currStackOffset -= bytes;
+        
+        return currStackOffset;
     }
     
     public void allocArray(byte destReg, byte regDim1) {
@@ -266,20 +270,17 @@ public class BackendMIPS implements IBackendMIPS {
 
     @Override
     public void loadArrayElement(byte dest, byte baseAddr, byte index) {
-        setSegType(SEG_TEXT);
-        if (index < 0)
-            throw new IllegalArgumentException("index must be >= 0");
+        setSegType(SEG_TEXT);        
         
-        loadWordReg(dest, baseAddr, (index + 1) * wordSize());
+        arrayOffset(baseAddr, baseAddr, index);
+        loadWordReg(dest, baseAddr);
     }
 
     @Override
     public void storeArrayElement(byte src, byte baseAddr, byte index) {
-        setSegType(SEG_TEXT);
-        if (index < 0)
-            throw new IllegalArgumentException("index must be >= 0");
-        
-        storeWordReg(src, baseAddr, (index + 1) * wordSize());
+        setSegType(SEG_TEXT);                
+        arrayOffset(baseAddr, baseAddr, index);    
+        storeWordReg(src, baseAddr);        
     }        
 
     @Override
@@ -399,9 +400,13 @@ public class BackendMIPS implements IBackendMIPS {
 
     @Override
     public void enterMain() {
-        setSegType(SEG_TEXT);
+        setSegType(SEG_TEXT);        
         out.println(".globl main");        
         emitLabel("main", "main procedure");
+        //out.println("addi   $fp, $sp, 4     # fp points to first word in stack frame");        
+        out.println("move   $fp, $sp        # fp points to old $sp");
+        
+        currStackOffset = 0;
     }
 
     @Override
@@ -414,22 +419,25 @@ public class BackendMIPS implements IBackendMIPS {
 
     @Override
     public void enterProc(String label, int nParams) {
-        setSegType(SEG_TEXT);
+        setSegType(SEG_TEXT);        
         emitLabel(label, "procedure declaration");
         out.println("addi   $sp, $sp, -8    # make space for $fp and $ra");
         out.println("sw     $fp, 4($sp)     # save frame pointer");
         out.println("sw     $ra, 0($sp)     # save return address");
-        out.println("addi   $fp, $sp, 4     # fp points to first word in stack frame");
+        //out.println("addi   $fp, $sp, 4     # fp points to first word in stack frame");
+        out.println("move   $fp, $sp        # fp points to old $sp");
+        
+        currStackOffset = 0;
     }
 
     @Override
     public void exitProc(String label) {
         setSegType(SEG_TEXT);
         emitLabel(label, "procedure epilogue");
-        out.print("addi   $sp, $fp, " + wordSize());
+        out.print("addi     $sp, $fp, " + 2 * wordSize());
         comment("free stack space of curr proc");
-        out.println("lw     $ra, -4($fp)    # restore return adddress");
-	out.println("lw     $fp, 0($fp)     # restore frame pointer");
+        out.println("lw     $ra, 0($fp)     # restore return adddress");
+	out.println("lw     $fp, 4($fp)     # restore frame pointer");
 	out.println("jr     $ra             # return");
     }
 
@@ -498,10 +506,11 @@ public class BackendMIPS implements IBackendMIPS {
         byte regToRestore;
         while ((regToRestore = popRegsStack()) != -1) {
             if (reg == (byte)-1 || regToRestore != reg) {
-                out.println("lw $" + regToRestore + ", " + paramOffset(numToRestore - numAlreadyRestored - 1) + "($sp) # restore $" + regToRestore + " from stack");
-                    
+                out.println("lw $" + regToRestore + ", " + paramOffset(numToRestore - numAlreadyRestored - 1) + "($sp) # restore $" + regToRestore + " from stack");                
             }
+            
             allocReg(regToRestore);
+            
             numAlreadyRestored++;
         }
         out.println("addi   $sp, $sp, " + numAlreadyRestored * wordSize() + "   # free room on stack for caller saved");      
@@ -538,7 +547,7 @@ public class BackendMIPS implements IBackendMIPS {
     private void writePrintString() {
         setSegType(SEG_TEXT);
         enterProc(BackendMIPS.PRINT_STR, 1);
-        out.println("lw $a0, 4($fp) # a0 = start address of string");
+        out.println("lw $a0, 8($fp) # a0 = start address of string");
         out.println("li $v0, 4      # print_string");
         out.println("syscall");
         exitProc("exit_" + BackendMIPS.PRINT_STR);
@@ -562,7 +571,7 @@ public class BackendMIPS implements IBackendMIPS {
     private void writePrintInt() {
         setSegType(SEG_TEXT);
         enterProc(BackendMIPS.PRINT_INT, 1);
-        out.println("lw $a0, 4($fp) # a0 = value");
+        out.println("lw $a0, 8($fp) # a0 = value");
         out.println("li $v0, 1      # print_int");
         out.println("syscall");
         exitProc("exit_" + BackendMIPS.PRINT_INT);
@@ -579,7 +588,7 @@ public class BackendMIPS implements IBackendMIPS {
                 
         byte reg = allocReg();
         byte reg1 = allocReg();
-        out.println("lw $" + reg + ", 4($fp)    # load boolean argument");
+        out.println("lw $" + reg + ", 8($fp)    # load boolean argument");
         out.println("li $" + reg1 + ", " + TRUE);
         out.println("beq $" + reg + ", $" + reg1 + ", printBoolSkip");
         out.println("la $a0, " + LBL_FALSE);
@@ -591,6 +600,14 @@ public class BackendMIPS implements IBackendMIPS {
         freeReg(reg1);
         exitProc("exit_" + BackendMIPS.PRINT_BOOL);
     }
-    
-    
+
+    @Override
+    public void arrayOffset(byte destReg, byte baseReg, byte idxReg) {
+        byte tmp = allocReg();
+        out.println("addi   $" + idxReg + ", $" + idxReg + ", 1");
+        loadConst(tmp, wordSize());
+        mul(idxReg, idxReg, tmp);
+        add(destReg, baseReg, idxReg);        
+        freeReg(tmp);
+    }    
 }

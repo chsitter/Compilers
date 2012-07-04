@@ -33,6 +33,7 @@ public interface ICodeGen {
 
 	/** Assign an address label to the current code address. */
 	public void assignLabel(String label);
+        public void assignLabel(String label, String comment);
 
 	/**
 	 * Load the value represented by <code>attr</code> into a register
@@ -198,7 +199,10 @@ public interface ICodeGen {
 	public void exitMain() 
 	throws YAPLException;
         
-        public void exitProc(String procName, IAttrib retAttr) throws YAPLException;
+        
+        public void exitProc(String label);
+        public void enterProc(String label, int nParams);
+        public void returnFromProc(String procName, IAttrib retAttr) throws YAPLException;
 
 	/**
 	 * Generate code for writing a string constant to standard output.
@@ -227,7 +231,9 @@ public interface ICodeGen {
 	/** Generate code unconditionally jumping to <code>label</code>. */
 	public void jump(String label);
 
-        public byte callProc(String procName, List<IAttrib> arguments);
+        public byte callProc(String procName, List<IAttrib> arguments, boolean isVoid);
         
         public void neg(IAttrib attrib) throws YAPLException;
+        
+        public int formalParamOffset(int idx);
 }

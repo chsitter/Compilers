@@ -292,7 +292,7 @@ IAttrib Selector(IAttrib parent) throws YAPLException : //TODO: Taschwer returns
                 throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);   //TODO: Taschwer does this already after <DOT>
 
 //TODO: Taschwer:
-RecordType record = (RecordType) lvalue.getType();
+//RecordType record = (RecordType) lvalue.getType();
             
             ISymbol sym = ((RecordType)type).getMember(tIdent.image);
             if (sym == null)
@@ -363,6 +363,9 @@ IAttrib PrimaryExpr() throws YAPLException :
                     resultAttr.setKind(IAttrib.Constant);
                 else if (s.getKind() == ISymbol.Variable)
                     resultAttr.setKind(IAttrib.Address);
+                else if (s.getKind() == ISymbol.Parameter) {
+                    resultAttr.setKind(IAttrib.Address);
+                }
                 resultAttr.setToken(tIdent);
             }
         [ resultAttr = Selector(resultAttr) ] | resultAttr = ArrayLen()
@@ -658,7 +661,7 @@ IAttrib ProcedureCall() throws YAPLException :
             ISymbol s = symbolTable.lookup(tIdent);
             if (!(s instanceof ProcedureSymbol))
                 throw new IllegalUseException(s, tIdent);
-            resultAttr = new Attrib(s);
+            resultAttr = new Attrib(s);          
             resultAttr.setToken(tIdent);
         }
     <OPEN_PARENTH> [ arguments = ArgumentList((ProcedureSymbol)s) ] <CLOSE_PARENTH>
@@ -670,7 +673,12 @@ IAttrib ProcedureCall() throws YAPLException :
             for(IAttrib a : arguments)
                 codeGen.loadReg(a); //unnecessary
 
-        codeGen.callProc(tIdent.image, arguments);       
+        byte returnReg = codeGen.callProc(tIdent.image, arguments, s.getType() instanceof VoidType);
+        
+        if(returnReg != (byte)-1) {
+            resultAttr.setKind(IAttrib.Register);
+            resultAttr.setRegister(returnReg);
+        }
 
         return resultAttr;
     }
@@ -710,34 +718,57 @@ void IfStatement() throws YAPLException :
 {
     {info("Found: IfStatement");}
     IAttrib attr;
+    String lElse, lEnd;
+    boolean elseSeen = false;
 }
 {
     <IF> attr = Expr()
     {
         if (!(attr.getType() instanceof BoolType))
             throw new YAPLException(CompilerError.CondNotBool, attr.getToken());
-        
-        //TODO - replace freeReg by codeGen function
-        codeGen.freeReg(attr);
+            
+        lElse = codeGen.newLabel();
+        lEnd = codeGen.newLabel();
+        codeGen.branchIfFalse(attr, lElse);        
     }
-    <THEN> StatementList() [ <ELSE> StatementList() ] <ENDIF>
+    <THEN> StatementList()    
+    [ <ELSE> 
+    {
+        codeGen.jump(lEnd);
+        elseSeen = true;
+        codeGen.assignLabel(lElse);
+    }
+    StatementList() ] <ENDIF>
+    {
+        if(!elseSeen)   codeGen.assignLabel(lElse);
+        else            codeGen.assignLabel(lEnd);
+    }
 }
 
 void WhileStatement() throws YAPLException :
 {
     {info("Found: WhileStatement");}
     IAttrib attr;
+    String lBegin, lEnd;
 }
 {
+    {
+        lBegin = codeGen.newLabel();
+        lEnd = codeGen.newLabel();
+        codeGen.assignLabel(lBegin, "while " + lBegin);        
+    }
     <WHILE> attr = Expr()
     {
         if (!(attr.getType() instanceof BoolType))
-            throw new YAPLException(CompilerError.CondNotBool, attr.getToken());
-
-        //TODO - replace freeReg by codeGen function
-        codeGen.freeReg(attr);
+            throw new YAPLException(CompilerError.CondNotBool, attr.getToken());        
+        
+        codeGen.branchIfFalse(attr, lEnd);
     }
     <DO> StatementList() <ENDWHILE>
+    {
+        codeGen.jump(lBegin);
+        codeGen.assignLabel(lEnd, "end while " + lBegin);
+    }
 }
 
 void ReturnStatement() throws YAPLException :
@@ -764,7 +795,7 @@ void ReturnStatement() throws YAPLException :
             throw new YAPLException(CompilerError.InvalidReturnType, retAttr.getToken());
 
         if(s.getKind() == ISymbol.Procedure) {
-            codeGen.exitProc(s.getName(), retAttr);
+            codeGen.returnFromProc(s.getName(), retAttr);
         }
     }
 }
@@ -965,6 +996,7 @@ ISymbol FormalParam() throws YAPLException :
             ISymbol s = new Symbol(tIdent, ISymbol.Parameter);
             s.setType(type);
             s.setReadonly(readonly);
+            s.setKind(ISymbol.Parameter);
             symbolTable.addSymbol(s);
             return s;
         }
@@ -974,15 +1006,19 @@ void FormalParamList(ProcedureSymbol proc) throws YAPLException :
 {
     {info("Found: FormalParamList");}
     ISymbol param;
+    int paramIdx = 0;
 }
 {
     param = FormalParam()
-    {
-        proc.addParameter(param);
+    {        
+        param.setOffset(codeGen.formalParamOffset(paramIdx));
+        proc.addParameter(param);        
     }
     (
         <COMMA> param = FormalParam()
         {
+            paramIdx++;
+            param.setOffset(codeGen.formalParamOffset(paramIdx));
             proc.addParameter(param);
         }
     )*
@@ -1005,7 +1041,11 @@ void Procedure() throws YAPLException :
             symbolTable.openScope(false);
             symbolTable.setParentSymbol(s);
         }
-    <OPEN_PARENTH> [ FormalParamList(s) ] <CLOSE_PARENTH> Block() tEndIdent=<IDENT>
+    <OPEN_PARENTH> [ FormalParamList(s) ] <CLOSE_PARENTH> 
+        {
+            codeGen.enterProc(tStartIdent.image, s.getParametersCount());
+        }
+    Block() tEndIdent=<IDENT>
         {
             if (!tEndIdent.image.equals(tStartIdent.image)) throw new ProcedureNameMismatchException(tStartIdent, tEndIdent);
             symbolTable.closeScope();            
@@ -1015,6 +1055,8 @@ void Procedure() throws YAPLException :
     {
         if (!(s.getType() instanceof VoidType) && !s.getReturnSeen())
             throw new YAPLException(CompilerError.MissingReturn, tEndIdent);
+
+        codeGen.exitProc("exit_" + tStartIdent.image);
     }
 }
 
@@ -1027,7 +1069,6 @@ void Program() throws YAPLException :
 {
     <PROGRAM> tProgramName=<IDENT>
         {
-            codeGen.enterMain();
             symbolTable.openScope(false);            
             symProgram = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.setParentSymbol(symProgram);
@@ -1035,7 +1076,11 @@ void Program() throws YAPLException :
             symbolTable.addSymbol(symProgram);
             symbolTable.openScope(true);            
         }
-    ( Decl() | Procedure() )* <BEGIN> StatementList() <END> tEndIdent=<IDENT>
+    ( Decl() | Procedure() )* <BEGIN> 
+    {
+            codeGen.enterMain();
+    }
+    StatementList() <END> tEndIdent=<IDENT>
         {
             if (!tEndIdent.image.equals(tProgramName.image)) throw new ProgramNameMismatchException(tProgramName, tEndIdent);
             symbolTable.closeScope();
