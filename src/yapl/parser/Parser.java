@@ -201,20 +201,17 @@ public class Parser implements ParserConstants {
       jj_consume_token(DOT);
       tIdent = jj_consume_token(IDENT);
             if (!(type instanceof RecordType))
-                {if (true) throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);}   //TODO: Taschwer does this already after <DOT>
-
-//TODO: Taschwer:
-//RecordType record = (RecordType) lvalue.getType();
+                {if (true) throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);}
 
             ISymbol sym = ((RecordType)type).getMember(tIdent.image);
             if (sym == null)
                 {if (true) throw new YAPLException(CompilerError.InvalidRecordField, tIdent);}
-            type = sym.getType();
+            /*type = sym.getType();
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(tIdent);
-            attr.setKind(IAttrib.Address);
-            //TODO: des setKind pr??fen - wird so vmtl nit gehn
-
+            attr.setKind(IAttrib.Address);*/
+            attr = parent;
+            codeGen.recordOffset(attr, sym);
       break;
     default:
       jj_la1[5] = jj_gen;
@@ -508,33 +505,45 @@ public class Parser implements ParserConstants {
   static final public IAttrib CreationExpr() throws ParseException, YAPLException {
     {info("Found: CreationExpr");}
     Type type;
-    ArrayType resultType;
-    IAttrib dim1, dim2 = null;
+    IAttrib dim1 = null, dim2 = null;
     Token newTok;
     newTok = jj_consume_token(NEW);
     type = StaticType();
-        resultType = new ArrayType(type);
-        resultType.setDim(1);
-    jj_consume_token(SQUARE_BRACKET_OPEN);
-    dim1 = Expr();
-    jj_consume_token(SQUARE_BRACKET_CLOSE);
-        if (!(dim1.getType() instanceof IntType))
-            {if (true) throw new YAPLException(CompilerError.BadArraySelector, dim1.getToken());}
     switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
     case SQUARE_BRACKET_OPEN:
+            type = new ArrayType(type);
+            ((ArrayType)type).setDim(1);
       jj_consume_token(SQUARE_BRACKET_OPEN);
-      dim2 = Expr();
+      dim1 = Expr();
       jj_consume_token(SQUARE_BRACKET_CLOSE);
-            resultType = new ArrayType(resultType);
+            if (!(dim1.getType() instanceof IntType))
+                {if (true) throw new YAPLException(CompilerError.BadArraySelector, dim1.getToken());}
+      switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
+      case SQUARE_BRACKET_OPEN:
+        jj_consume_token(SQUARE_BRACKET_OPEN);
+        dim2 = Expr();
+        jj_consume_token(SQUARE_BRACKET_CLOSE);
+                type = new ArrayType(type);
 
-            if (!(dim2.getType() instanceof IntType))
-                {if (true) throw new YAPLException(CompilerError.BadArraySelector, dim2.getToken());}
+                if (!(dim2.getType() instanceof IntType))
+                    {if (true) throw new YAPLException(CompilerError.BadArraySelector, dim2.getToken());}
+        break;
+      default:
+        jj_la1[17] = jj_gen;
+        ;
+      }
       break;
     default:
-      jj_la1[17] = jj_gen;
+      jj_la1[18] = jj_gen;
       ;
     }
-        IAttrib resultAttr = codeGen.allocArray(resultType, dim1, dim2);
+        IAttrib resultAttr;
+        if (type instanceof ArrayType)
+            resultAttr = codeGen.allocArray((ArrayType)type, dim1, dim2);
+        else if (type instanceof RecordType)
+            resultAttr = codeGen.allocRecord((RecordType)type);
+        else
+            {if (true) throw new YAPLException(CompilerError.Syntax, "new Operator may only be used with Records or Arrays");}
         resultAttr.setToken(newTok);
         {if (true) return resultAttr;}
     throw new Error("Missing return statement in function");
@@ -562,7 +571,7 @@ public class Parser implements ParserConstants {
           ;
           break;
         default:
-          jj_la1[18] = jj_gen;
+          jj_la1[19] = jj_gen;
           break label_4;
         }
         tOp = jj_consume_token(OR);
@@ -580,7 +589,7 @@ public class Parser implements ParserConstants {
       lvalue = CreationExpr();
       break;
     default:
-      jj_la1[19] = jj_gen;
+      jj_la1[20] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -613,7 +622,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[20] = jj_gen;
+        jj_la1[21] = jj_gen;
         break label_5;
       }
       jj_consume_token(COMMA);
@@ -660,7 +669,7 @@ public class Parser implements ParserConstants {
       arguments = ArgumentList((ProcedureSymbol)s);
       break;
     default:
-      jj_la1[21] = jj_gen;
+      jj_la1[22] = jj_gen;
       ;
     }
     jj_consume_token(CLOSE_PARENTH);
@@ -699,7 +708,7 @@ public class Parser implements ParserConstants {
       lvalue = Selector(lvalue);
       break;
     default:
-      jj_la1[22] = jj_gen;
+      jj_la1[23] = jj_gen;
       ;
     }
     jj_consume_token(ASSIGN);
@@ -739,7 +748,7 @@ public class Parser implements ParserConstants {
       StatementList();
       break;
     default:
-      jj_la1[23] = jj_gen;
+      jj_la1[24] = jj_gen;
       ;
     }
     jj_consume_token(ENDIF);
@@ -785,7 +794,7 @@ public class Parser implements ParserConstants {
       retAttr = Expr();
       break;
     default:
-      jj_la1[24] = jj_gen;
+      jj_la1[25] = jj_gen;
       ;
     }
         retAttr.setToken(returnTok);
@@ -831,7 +840,7 @@ public class Parser implements ParserConstants {
       WriteStatement();
       break;
     default:
-      jj_la1[25] = jj_gen;
+      jj_la1[26] = jj_gen;
       if (jj_2_2(3)) {
         Assignment();
       } else {
@@ -844,7 +853,7 @@ public class Parser implements ParserConstants {
           Block();
           break;
         default:
-          jj_la1[26] = jj_gen;
+          jj_la1[27] = jj_gen;
           jj_consume_token(-1);
           throw new ParseException();
         }
@@ -867,7 +876,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[27] = jj_gen;
+        jj_la1[28] = jj_gen;
         break label_6;
       }
       Statement();
@@ -883,7 +892,7 @@ public class Parser implements ParserConstants {
       Decl();
       break;
     default:
-      jj_la1[28] = jj_gen;
+      jj_la1[29] = jj_gen;
       ;
     }
     jj_consume_token(BEGIN);
@@ -915,7 +924,7 @@ public class Parser implements ParserConstants {
             {if (true) return s.getType();}
       break;
     default:
-      jj_la1[29] = jj_gen;
+      jj_la1[30] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -933,7 +942,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[30] = jj_gen;
+        jj_la1[31] = jj_gen;
         break label_7;
       }
       jj_consume_token(SQUARE_BRACKET_OPEN);
@@ -958,7 +967,7 @@ public class Parser implements ParserConstants {
       t = Type();
       break;
     default:
-      jj_la1[31] = jj_gen;
+      jj_la1[32] = jj_gen;
       jj_consume_token(-1);
       throw new ParseException();
     }
@@ -997,8 +1006,8 @@ public class Parser implements ParserConstants {
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
-
-            codeGen.allocVariable(s);
+            else
+                codeGen.allocVariable(s);
     label_8:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -1006,7 +1015,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[32] = jj_gen;
+        jj_la1[33] = jj_gen;
         break label_8;
       }
       jj_consume_token(COMMA);
@@ -1016,8 +1025,8 @@ public class Parser implements ParserConstants {
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
-
-            codeGen.allocVariable(s);
+            else
+                codeGen.allocVariable(s);
     }
     jj_consume_token(SEMICOLON);
   }
@@ -1042,7 +1051,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[33] = jj_gen;
+        jj_la1[34] = jj_gen;
         break label_9;
       }
     }
@@ -1065,7 +1074,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[34] = jj_gen;
+        jj_la1[35] = jj_gen;
         break label_10;
       }
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -1081,7 +1090,7 @@ public class Parser implements ParserConstants {
         TypeDecl();
         break;
       default:
-        jj_la1[35] = jj_gen;
+        jj_la1[36] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1099,7 +1108,7 @@ public class Parser implements ParserConstants {
             readonly = true;
       break;
     default:
-      jj_la1[36] = jj_gen;
+      jj_la1[37] = jj_gen;
       ;
     }
     type = Type();
@@ -1130,7 +1139,7 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[37] = jj_gen;
+        jj_la1[38] = jj_gen;
         break label_11;
       }
       jj_consume_token(COMMA);
@@ -1164,7 +1173,7 @@ public class Parser implements ParserConstants {
       FormalParamList(s);
       break;
     default:
-      jj_la1[38] = jj_gen;
+      jj_la1[39] = jj_gen;
       ;
     }
     jj_consume_token(CLOSE_PARENTH);
@@ -1191,7 +1200,6 @@ public class Parser implements ParserConstants {
             symbolTable.setParentSymbol(symProgram);
             symProgram.setType(new VoidType());
             symbolTable.addSymbol(symProgram);
-            symbolTable.openScope(true);
     label_12:
     while (true) {
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
@@ -1200,9 +1208,10 @@ public class Parser implements ParserConstants {
         ;
         break;
       default:
-        jj_la1[39] = jj_gen;
+        jj_la1[40] = jj_gen;
         break label_12;
       }
+          symbolTable.openScope(true);
       switch ((jj_ntk==-1)?jj_ntk():jj_ntk) {
       case DECLARE:
         Decl();
@@ -1211,7 +1220,7 @@ public class Parser implements ParserConstants {
         Procedure();
         break;
       default:
-        jj_la1[40] = jj_gen;
+        jj_la1[41] = jj_gen;
         jj_consume_token(-1);
         throw new ParseException();
       }
@@ -1242,6 +1251,16 @@ public class Parser implements ParserConstants {
     finally { jj_save(1, xla); }
   }
 
+  static private boolean jj_3R_14() {
+    if (jj_scan_token(IDENT)) return true;
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_15()) jj_scanpos = xsp;
+    if (jj_scan_token(ASSIGN)) return true;
+    if (jj_3R_16()) return true;
+    return false;
+  }
+
   static private boolean jj_3R_25() {
     if (jj_3R_26()) return true;
     return false;
@@ -1267,13 +1286,8 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_14() {
-    if (jj_scan_token(IDENT)) return true;
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_15()) jj_scanpos = xsp;
-    if (jj_scan_token(ASSIGN)) return true;
-    if (jj_3R_16()) return true;
+  static private boolean jj_3R_40() {
+    if (jj_scan_token(NUMBER)) return true;
     return false;
   }
 
@@ -1282,13 +1296,8 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_40() {
-    if (jj_scan_token(NUMBER)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_23() {
-    if (jj_scan_token(NEW)) return true;
+  static private boolean jj_3R_39() {
+    if (jj_scan_token(FALSE)) return true;
     return false;
   }
 
@@ -1297,8 +1306,13 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_39() {
-    if (jj_scan_token(FALSE)) return true;
+  static private boolean jj_3R_23() {
+    if (jj_scan_token(NEW)) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_18() {
+    if (jj_3R_22()) return true;
     return false;
   }
 
@@ -1317,13 +1331,13 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_18() {
-    if (jj_3R_22()) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_24() {
-    if (jj_3R_25()) return true;
+  static private boolean jj_3R_16() {
+    Token xsp;
+    xsp = jj_scanpos;
+    if (jj_3R_18()) {
+    jj_scanpos = xsp;
+    if (jj_3R_19()) return true;
+    }
     return false;
   }
 
@@ -1337,6 +1351,11 @@ public class Parser implements ParserConstants {
     if (jj_3R_40()) return true;
     }
     }
+    return false;
+  }
+
+  static private boolean jj_3R_24() {
+    if (jj_3R_25()) return true;
     return false;
   }
 
@@ -1355,16 +1374,6 @@ public class Parser implements ParserConstants {
     }
     }
     }
-    }
-    return false;
-  }
-
-  static private boolean jj_3R_16() {
-    Token xsp;
-    xsp = jj_scanpos;
-    if (jj_3R_18()) {
-    jj_scanpos = xsp;
-    if (jj_3R_19()) return true;
     }
     return false;
   }
@@ -1393,24 +1402,9 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_33() {
-    if (jj_scan_token(OPEN_PARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3R_22() {
-    if (jj_3R_24()) return true;
-    return false;
-  }
-
   static private boolean jj_3R_13() {
     if (jj_scan_token(IDENT)) return true;
     if (jj_scan_token(OPEN_PARENTH)) return true;
-    return false;
-  }
-
-  static private boolean jj_3_2() {
-    if (jj_3R_14()) return true;
     return false;
   }
 
@@ -1419,14 +1413,29 @@ public class Parser implements ParserConstants {
     return false;
   }
 
-  static private boolean jj_3R_20() {
-    if (jj_scan_token(SQUARE_BRACKET_OPEN)) return true;
-    if (jj_3R_16()) return true;
+  static private boolean jj_3_2() {
+    if (jj_3R_14()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_33() {
+    if (jj_scan_token(OPEN_PARENTH)) return true;
     return false;
   }
 
   static private boolean jj_3R_19() {
     if (jj_3R_23()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_22() {
+    if (jj_3R_24()) return true;
+    return false;
+  }
+
+  static private boolean jj_3R_20() {
+    if (jj_scan_token(SQUARE_BRACKET_OPEN)) return true;
+    if (jj_3R_16()) return true;
     return false;
   }
 
@@ -1452,7 +1461,7 @@ public class Parser implements ParserConstants {
   static private Token jj_scanpos, jj_lastpos;
   static private int jj_la;
   static private int jj_gen;
-  static final private int[] jj_la1 = new int[41];
+  static final private int[] jj_la1 = new int[42];
   static private int[] jj_la1_0;
   static private int[] jj_la1_1;
   static {
@@ -1460,10 +1469,10 @@ public class Parser implements ParserConstants {
       jj_la1_init_1();
    }
    private static void jj_la1_init_0() {
-      jj_la1_0 = new int[] {0x0,0x0,0x0,0x0,0x22000,0x0,0x0,0x0,0x0,0x22000,0x0,0x0,0x0,0x0,0x0,0x0,0x100,0x0,0x80,0x22800,0x0,0x22800,0x0,0x4000,0x22800,0x10c0020,0x2200000,0x32c0020,0x2000000,0x8400,0x0,0x9400,0x0,0x8400,0xc08400,0xc08400,0x10000000,0x0,0x10008400,0x22000000,0x22000000,};
+      jj_la1_0 = new int[] {0x0,0x0,0x0,0x0,0x22000,0x0,0x0,0x0,0x0,0x22000,0x0,0x0,0x0,0x0,0x0,0x0,0x100,0x0,0x0,0x80,0x22800,0x0,0x22800,0x0,0x4000,0x22800,0x10c0020,0x2200000,0x32c0020,0x2000000,0x8400,0x0,0x9400,0x0,0x8400,0xc08400,0xc08400,0x10000000,0x0,0x10008400,0x22000000,0x22000000,};
    }
    private static void jj_la1_init_1() {
-      jj_la1_1 = new int[] {0x1e,0x60,0x180,0xe00,0x8000000,0x5000,0x5000,0x5000,0x5000,0x8010000,0x4008000,0x180,0xe00,0x180,0x1e,0x60,0x0,0x1000,0x0,0xc018180,0x40000,0xc018180,0x5000,0x0,0xc018180,0x0,0x4000000,0x4000000,0x0,0x4000000,0x1000,0x4000000,0x40000,0x4000000,0x4000000,0x4000000,0x0,0x40000,0x4000000,0x0,0x0,};
+      jj_la1_1 = new int[] {0x1e,0x60,0x180,0xe00,0x8000000,0x5000,0x5000,0x5000,0x5000,0x8010000,0x4008000,0x180,0xe00,0x180,0x1e,0x60,0x0,0x1000,0x1000,0x0,0xc018180,0x40000,0xc018180,0x5000,0x0,0xc018180,0x0,0x4000000,0x4000000,0x0,0x4000000,0x1000,0x4000000,0x40000,0x4000000,0x4000000,0x4000000,0x0,0x40000,0x4000000,0x0,0x0,};
    }
   static final private JJCalls[] jj_2_rtns = new JJCalls[2];
   static private boolean jj_rescan = false;
@@ -1487,7 +1496,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1502,7 +1511,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1520,7 +1529,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1531,7 +1540,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1548,7 +1557,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1558,7 +1567,7 @@ public class Parser implements ParserConstants {
     token = new Token();
     jj_ntk = -1;
     jj_gen = 0;
-    for (int i = 0; i < 41; i++) jj_la1[i] = -1;
+    for (int i = 0; i < 42; i++) jj_la1[i] = -1;
     for (int i = 0; i < jj_2_rtns.length; i++) jj_2_rtns[i] = new JJCalls();
   }
 
@@ -1675,7 +1684,7 @@ public class Parser implements ParserConstants {
       la1tokens[jj_kind] = true;
       jj_kind = -1;
     }
-    for (int i = 0; i < 41; i++) {
+    for (int i = 0; i < 42; i++) {
       if (jj_la1[i] == jj_gen) {
         for (int j = 0; j < 32; j++) {
           if ((jj_la1_0[i] & (1<<j)) != 0) {

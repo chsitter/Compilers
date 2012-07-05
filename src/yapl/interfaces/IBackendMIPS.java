@@ -485,4 +485,6 @@ public interface IBackendMIPS {
      * @param index the parameter index, starts at 0.
      */
     public int paramOffset(int index);
+
+    public void allocRecord(byte register, int i);
 }

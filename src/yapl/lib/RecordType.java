@@ -1,7 +1,7 @@
 package yapl.lib;
 
-import yapl.interfaces.ISymbol;
 import java.util.ArrayList;
+import yapl.interfaces.ISymbol;
 
 /**
  *
@@ -14,6 +14,7 @@ public class RecordType extends Type {
     }            
     
     public void addMember(ISymbol member) {
+        member.setOffset(members.size());
         members.add(member);
     }
     

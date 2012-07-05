@@ -1,9 +1,6 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package yapl.impl;
 
+import java.util.ArrayList;
 import yapl.exceptions.IdentifierNotDeclaredException;
 import yapl.exceptions.SymbolAlreadyDeclaredException;
 import yapl.exceptions.YAPLException;
@@ -13,7 +10,6 @@ import yapl.lib.BoolType;
 import yapl.lib.IntType;
 import yapl.lib.VoidType;
 import yapl.parser.Token;
-import java.util.ArrayList;
 
 /**
  *
@@ -37,13 +33,13 @@ public class SymbolTable implements ISymboltable {
         
         writeint = new ProcedureSymbol("writeint");
         writeint.setType(new VoidType());
-        paramInt = new Symbol("i", ISymbol.Parameter);  //TODO: right kind?
+        paramInt = new Symbol("i", ISymbol.Parameter);
         paramInt.setType(new IntType());
         writeint.addParameter(paramInt);
         
         writebool = new ProcedureSymbol("writebool");
         writebool.setType(new VoidType());
-        paramBool = new Symbol("b", ISymbol.Parameter);  //TODO: right kind?
+        paramBool = new Symbol("b", ISymbol.Parameter);
         paramBool.setType(new BoolType());
         writebool.addParameter(paramBool);
         
@@ -86,7 +82,10 @@ public class SymbolTable implements ISymboltable {
         debugOut("close scope " + (scopes.size()-1));        
         scopes.remove(scopes.size()-1);            
         
-        if (scopes.size() == globalScopeIdx) globalScopeIdx = -1;        
+        if (scopes.size() == globalScopeIdx)
+            globalScopeIdx = -1;     
+        else if (scopes.size() == globalScopeIdx + 1)
+            useGlobalScope = true;  //we just closed a scope directly surrounded by the global scope, so we use global scope again
     }
 
     @Override

@@ -136,10 +136,15 @@ public class BackendMIPS implements IBackendMIPS {
     public int allocStringConstant(String string) {
         setSegType(SEG_DATA);
         checkFirstDataSeg();
+        out.println(".align 2");
         out.println(".asciiz \"" + string + "\"");
         int oldOffset = currHeapOffset;
-        currHeapOffset += (string.length() + 1);    //+ 1 because of terminating 0
+        currHeapOffset += roundUpTo4(string.length() + 1);    //+ 1 because of terminating 0
         return oldOffset;
+    }
+    
+    private int roundUpTo4(int n) {
+        return (int)(Math.ceil((double)n / 4) * 4);
     }
     
     private void checkFirstDataSeg() {
@@ -194,11 +199,11 @@ public class BackendMIPS implements IBackendMIPS {
             mul((byte)4 /*a0*/, (byte)4, wordSize);
             emitLabel("allocArrayWhile_" + lNr, "");
             out.println("blez $" + t1 + ", endAllocArray_" + lNr);
-            out.print("li $v0, 9");
-            out.print("sycall");
+            out.println("li $v0, 9");
+            out.print("syscall");
             comment("sbrk");            
             
-            out.println("subi $" + t2 + ", " + wordSize());
+            out.println("subi $" + t2 + ", $" + t2 + ", " + wordSize());
             out.println("sw $v0, ($" + t2 + ")");
             out.println("sw $" + regDim2 + ", ($v0)");
             
@@ -209,6 +214,17 @@ public class BackendMIPS implements IBackendMIPS {
             freeReg(t2);
         }
         freeReg(wordSize);
+    }
+
+    @Override
+    public void allocRecord(byte destReg, int bytes) {
+        setSegType(SEG_TEXT);
+        out.println("li     $a0, " + bytes);
+        out.println("li     $v0, 9");
+        out.print("syscall");
+        comment("sbrk - alloc " + bytes + " bytes for a new Record");
+        out.print("move   $" + destReg + ", $v0");
+        comment("move Record start address to dest reg");
     }
 
     @Override
@@ -609,5 +625,5 @@ public class BackendMIPS implements IBackendMIPS {
         mul(idxReg, idxReg, tmp);
         add(destReg, baseReg, idxReg);        
         freeReg(tmp);
-    }    
+    }
 }

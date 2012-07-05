@@ -4,6 +4,7 @@ import java.util.List;
 import yapl.exceptions.YAPLException;
 import yapl.impl.Symbol;
 import yapl.lib.ArrayType;
+import yapl.lib.RecordType;
 import yapl.lib.Type;
 import yapl.parser.Token;
 
@@ -90,6 +91,9 @@ public interface ICodeGen {
         
         public IAttrib allocArray(ArrayType arrayType, IAttrib dim1)
 	throws YAPLException;
+        
+        public IAttrib allocRecord(RecordType recordType)
+        throws YAPLException;
 	
 	/**
 	 * Generate code for address offset computation of an array element.
@@ -112,6 +116,9 @@ public interface ICodeGen {
 	 */
 	public void arrayOffset(IAttrib arr, IAttrib index) 
 	throws YAPLException;
+        
+        public void recordOffset(IAttrib record, ISymbol field)
+        throws YAPLException;
 //        
 //        public byte loadArrayElement(IAttrib arr, IAttrib index);
 //        

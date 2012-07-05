@@ -265,7 +265,7 @@ IAttrib Literal() throws YAPLException :
         }
 }
 
-IAttrib Selector(IAttrib parent) throws YAPLException : //TODO: Taschwer returns void
+IAttrib Selector(IAttrib parent) throws YAPLException :
 {
     {info("Found: Selector");}
     Token tIdent, selector;
@@ -289,19 +289,17 @@ IAttrib Selector(IAttrib parent) throws YAPLException : //TODO: Taschwer returns
     | <DOT> tIdent=<IDENT>
         {
             if (!(type instanceof RecordType))
-                throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);   //TODO: Taschwer does this already after <DOT>
-
-//TODO: Taschwer:
-//RecordType record = (RecordType) lvalue.getType();
+                throw new YAPLException(CompilerError.SelectorNotRecord, tIdent);
             
             ISymbol sym = ((RecordType)type).getMember(tIdent.image);
             if (sym == null)
                 throw new YAPLException(CompilerError.InvalidRecordField, tIdent);            
-            type = sym.getType();
+            /*type = sym.getType();
             attr = new Attrib(type, parent.isConstant());
             attr.setToken(tIdent);
-            attr.setKind(IAttrib.Address);
-            //TODO: des setKind prüfen - wird so vmtl nit gehn
+            attr.setKind(IAttrib.Address);*/
+            attr = parent;
+            codeGen.recordOffset(attr, sym);
         }
     ) [ attr=Selector(attr) ]
     {
@@ -541,33 +539,39 @@ IAttrib CreationExpr() throws YAPLException :
 {
     {info("Found: CreationExpr");}
     Type type;
-    ArrayType resultType;
-    IAttrib dim1, dim2 = null;
+    IAttrib dim1 = null, dim2 = null;
     Token newTok;
 }
 {
     newTok = <NEW> type = StaticType()
-    {
-        resultType = new ArrayType(type);
-        resultType.setDim(1);
-    }
-    <SQUARE_BRACKET_OPEN> dim1 = Expr() <SQUARE_BRACKET_CLOSE>
-    {
-        if (!(dim1.getType() instanceof IntType))
-            throw new YAPLException(CompilerError.BadArraySelector, dim1.getToken());
-    }
     [
-        <SQUARE_BRACKET_OPEN> dim2 = Expr() <SQUARE_BRACKET_CLOSE>
         {
-            resultType = new ArrayType(resultType);
-
-            if (!(dim2.getType() instanceof IntType))
-                throw new YAPLException(CompilerError.BadArraySelector, dim2.getToken());
+            type = new ArrayType(type);
+            ((ArrayType)type).setDim(1);
         }
+        <SQUARE_BRACKET_OPEN> dim1 = Expr() <SQUARE_BRACKET_CLOSE>
+        {
+            if (!(dim1.getType() instanceof IntType))
+                throw new YAPLException(CompilerError.BadArraySelector, dim1.getToken());
+        }
+        [
+            <SQUARE_BRACKET_OPEN> dim2 = Expr() <SQUARE_BRACKET_CLOSE>
+            {
+                type = new ArrayType(type);
+
+                if (!(dim2.getType() instanceof IntType))
+                    throw new YAPLException(CompilerError.BadArraySelector, dim2.getToken());
+            }
+        ]
     ]
     {        
-        
-        IAttrib resultAttr = codeGen.allocArray(resultType, dim1, dim2);
+        IAttrib resultAttr;
+        if (type instanceof ArrayType)
+            resultAttr = codeGen.allocArray((ArrayType)type, dim1, dim2);
+        else if (type instanceof RecordType)
+            resultAttr = codeGen.allocRecord((RecordType)type);
+        else
+            throw new YAPLException(CompilerError.Syntax, "new Operator may only be used with Records or Arrays");
         resultAttr.setToken(newTok);
         return resultAttr;
     }
@@ -932,8 +936,8 @@ void VarDecl(ISymbol recordSymbol) throws YAPLException :
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
-            
-            codeGen.allocVariable(s);
+            else
+                codeGen.allocVariable(s);
         } 
     ( <COMMA> tIdent=<IDENT>
         {
@@ -942,8 +946,8 @@ void VarDecl(ISymbol recordSymbol) throws YAPLException :
             symbolTable.addSymbol(s);
             if (recordSymbol != null)
                 ((RecordType)recordSymbol.getType()).addMember(s);
-
-            codeGen.allocVariable(s);
+            else
+                codeGen.allocVariable(s);
         }
     )* <SEMICOLON>
 }
@@ -1073,10 +1077,12 @@ void Program() throws YAPLException :
             symProgram = new Symbol(tProgramName, ISymbol.Program);
             symbolTable.setParentSymbol(symProgram);
             symProgram.setType(new VoidType());
-            symbolTable.addSymbol(symProgram);
-            symbolTable.openScope(true);            
+            symbolTable.addSymbol(symProgram);      
         }
-    ( Decl() | Procedure() )* <BEGIN> 
+    (
+        { symbolTable.openScope(true); }
+        (Decl() | Procedure())
+    )* <BEGIN> 
     {
             codeGen.enterMain();
     }
